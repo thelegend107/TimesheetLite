@@ -29,6 +29,10 @@ h1, h2, h3, h4 {
     line-height: 1.15;
 }
 
+.timesheet-hero h1:focus {
+    outline: none;
+}
+
 .timesheet-card {
     box-shadow: none;
 }
