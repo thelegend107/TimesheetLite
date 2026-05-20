@@ -30,6 +30,11 @@
                 <div class="timesheet-total">@TotalHours.ToString("0.##") hours this week</div>
             </RadzenStack>
 
+            @if (!string.IsNullOrWhiteSpace(loadError))
+            {
+                <div class="timesheet-error">@loadError</div>
+            }
+
             <RadzenRow>
                 <RadzenColumn Size="12" SizeMD="2">
                     <RadzenLabel Text="Date" />
@@ -157,6 +162,7 @@
     private List<TimeEntry> entries = [];
     private List<ProjectTotal> projectTotals = [];
     private TimeEntry newEntry = new();
+    private string? loadError;
 
     private decimal TotalHours => entries.Sum(x => x.Hours);
 
@@ -170,21 +176,32 @@
     {
         var weekEnd = weekStart.AddDays(7);
 
-        await using var db = await DbFactory.CreateDbContextAsync();
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
 
-        entries = await db.TimeEntries
-            .Where(x => x.WorkDate >= weekStart && x.WorkDate < weekEnd)
-            .OrderBy(x => x.WorkDate)
-            .ThenBy(x => x.Project)
-            .ThenBy(x => x.Task)
-            .AsNoTracking()
-            .ToListAsync();
+            entries = await db.TimeEntries
+                .Where(x => x.WorkDate >= weekStart && x.WorkDate < weekEnd)
+                .OrderBy(x => x.WorkDate)
+                .ThenBy(x => x.Project)
+                .ThenBy(x => x.Task)
+                .AsNoTracking()
+                .ToListAsync();
 
-        projectTotals = entries
-            .GroupBy(x => x.Project)
-            .Select(x => new ProjectTotal(x.Key, x.Sum(y => y.Hours)))
-            .OrderBy(x => x.Project)
-            .ToList();
+            projectTotals = entries
+                .GroupBy(x => x.Project)
+                .Select(x => new ProjectTotal(x.Key, x.Sum(y => y.Hours)))
+                .OrderBy(x => x.Project)
+                .ToList();
+
+            loadError = null;
+        }
+        catch
+        {
+            entries = [];
+            projectTotals = [];
+            loadError = "Entries could not be loaded. Check the database connection, then refresh.";
+        }
     }
 
     private async Task AddEntry()
@@ -201,8 +218,16 @@
 
         await using var db = await DbFactory.CreateDbContextAsync();
 
-        db.TimeEntries.Add(newEntry);
-        await db.SaveChangesAsync();
+        try
+        {
+            db.TimeEntries.Add(newEntry);
+            await db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Could not add time entry.", ex.Message);
+            return;
+        }
 
         var previousProject = newEntry.Project;
         newEntry = CreateNewEntry();
@@ -224,8 +249,17 @@
 
         await using var db = await DbFactory.CreateDbContextAsync();
 
-        db.TimeEntries.Update(entry);
-        await db.SaveChangesAsync();
+        try
+        {
+            db.TimeEntries.Update(entry);
+            await db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Could not update time entry.", ex.Message);
+            await LoadEntries();
+            return;
+        }
 
         await LoadEntries();
     }
@@ -256,8 +290,16 @@
     {
         await using var db = await DbFactory.CreateDbContextAsync();
 
-        db.TimeEntries.Remove(entry);
-        await db.SaveChangesAsync();
+        try
+        {
+            db.TimeEntries.Remove(entry);
+            await db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Could not delete time entry.", ex.Message);
+            return;
+        }
 
         await LoadEntries();
     }
