@@ -1,0 +1,329 @@
+@page "/"
+@page "/timesheet"
+@inject IDbContextFactory<TimesheetDbContext> DbFactory
+@inject NotificationService NotificationService
+
+<PageTitle>Timesheet Lite</PageTitle>
+
+<RadzenStack Gap="1rem" class="timesheet-page">
+    <RadzenRow AlignItems="AlignItems.Center" class="timesheet-hero">
+        <RadzenColumn Size="12" SizeMD="7">
+            <h1>Time tracker</h1>
+            <div class="timesheet-muted">
+                @weekStart.ToString("MMM d, yyyy") - @weekStart.AddDays(6).ToString("MMM d, yyyy")
+            </div>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeMD="5">
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                <RadzenButton Text="Previous" Icon="chevron_left" Click="@PreviousWeek" />
+                <RadzenButton Text="This Week" ButtonStyle="ButtonStyle.Secondary" Click="@ThisWeek" />
+                <RadzenButton Text="Next" Icon="chevron_right" IconPosition="IconPosition.Right" Click="@NextWeek" />
+            </RadzenStack>
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenCard class="timesheet-card timesheet-entry-card">
+        <RadzenStack Gap="0.75rem">
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Gap="1rem" Wrap="FlexWrap.Wrap">
+                <h2>Add time</h2>
+                <div class="timesheet-total">@TotalHours.ToString("0.##") hours this week</div>
+            </RadzenStack>
+
+            <RadzenRow>
+                <RadzenColumn Size="12" SizeMD="2">
+                    <RadzenLabel Text="Date" />
+                    <RadzenDatePicker @bind-Value="newEntry.WorkDate" DateFormat="M/d/yyyy" Style="width: 100%;" />
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeMD="2">
+                    <RadzenLabel Text="Project" />
+                    <RadzenTextBox @bind-Value="newEntry.Project" Style="width: 100%;" />
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeMD="2">
+                    <RadzenLabel Text="Task" />
+                    <RadzenTextBox @bind-Value="newEntry.Task" Style="width: 100%;" />
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeMD="2">
+                    <RadzenLabel Text="Hours" />
+                    <RadzenNumeric TValue="decimal" @bind-Value="newEntry.Hours" Min="0" Max="24" Step="0.25" Style="width: 100%;" />
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeMD="3">
+                    <RadzenLabel Text="Notes" />
+                    <RadzenTextBox @bind-Value="newEntry.Notes" Style="width: 100%;" />
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeMD="1">
+                    <RadzenLabel Text="&nbsp;" />
+                    <RadzenButton Text="Add" Icon="add" Click="@AddEntry" Style="width: 100%;" class="timesheet-add-button" />
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenStack>
+    </RadzenCard>
+
+    <RadzenCard class="timesheet-card">
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Gap="1rem" Wrap="FlexWrap.Wrap">
+            <h2>Entries</h2>
+        </RadzenStack>
+
+        <RadzenDataGrid @ref="grid"
+                        Data="@entries"
+                        TItem="TimeEntry"
+                        EditMode="DataGridEditMode.Single"
+                        RowUpdate="@UpdateEntry"
+                        AllowSorting="true"
+                        AllowPaging="false"
+                        EmptyText="No time entries for this week yet."
+                        Style="margin-top: 1rem;">
+            <Columns>
+                <RadzenDataGridColumn TItem="TimeEntry" Property="WorkDate" Title="Date" Width="140px">
+                    <Template Context="entry">
+                        @entry.WorkDate.ToString("M/d/yyyy")
+                    </Template>
+                    <EditTemplate Context="entry">
+                        <RadzenDatePicker @bind-Value="entry.WorkDate" DateFormat="M/d/yyyy" Style="width: 100%;" />
+                    </EditTemplate>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="TimeEntry" Property="Project" Title="Project" Width="180px">
+                    <EditTemplate Context="entry">
+                        <RadzenTextBox @bind-Value="entry.Project" Style="width: 100%;" />
+                    </EditTemplate>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="TimeEntry" Property="Task" Title="Task" Width="180px">
+                    <EditTemplate Context="entry">
+                        <RadzenTextBox @bind-Value="entry.Task" Style="width: 100%;" />
+                    </EditTemplate>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="TimeEntry" Property="Hours" Title="Hours" Width="120px">
+                    <Template Context="entry">
+                        @entry.Hours.ToString("0.##")
+                    </Template>
+                    <EditTemplate Context="entry">
+                        <RadzenNumeric TValue="decimal" @bind-Value="entry.Hours" Min="0" Max="24" Step="0.25" Style="width: 100%;" />
+                    </EditTemplate>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="TimeEntry" Property="Notes" Title="Notes">
+                    <EditTemplate Context="entry">
+                        <RadzenTextBox @bind-Value="entry.Notes" Style="width: 100%;" />
+                    </EditTemplate>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="TimeEntry" Title="" Width="150px" Sortable="false">
+                    <Template Context="entry">
+                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.25rem">
+                            <RadzenButton Icon="edit" Size="ButtonSize.Small" Click="@(() => EditEntry(entry))" />
+                            <RadzenButton Icon="delete" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Danger" Click="@(() => DeleteEntry(entry))" />
+                        </RadzenStack>
+                    </Template>
+
+                    <EditTemplate Context="entry">
+                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.25rem">
+                            <RadzenButton Icon="save" Size="ButtonSize.Small" Click="@(() => SaveEntry(entry))" />
+                            <RadzenButton Icon="close" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Secondary" Click="@(() => CancelEdit(entry))" />
+                        </RadzenStack>
+                    </EditTemplate>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenCard>
+
+    <RadzenCard class="timesheet-card">
+        <h2>Weekly summary</h2>
+
+        <RadzenDataGrid Data="@projectTotals" TItem="ProjectTotal" AllowPaging="false" EmptyText="Project totals will appear after time is added.">
+            <Columns>
+                <RadzenDataGridColumn TItem="ProjectTotal" Property="Project" Title="Project" />
+                <RadzenDataGridColumn TItem="ProjectTotal" Property="Hours" Title="Hours" Width="140px">
+                    <Template Context="row">
+                        @row.Hours.ToString("0.##")
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenCard>
+</RadzenStack>
+
+@code {
+    private RadzenDataGrid<TimeEntry>? grid;
+
+    private DateTime weekStart = StartOfWeek(DateTime.Today);
+    private List<TimeEntry> entries = [];
+    private List<ProjectTotal> projectTotals = [];
+    private TimeEntry newEntry = new();
+
+    private decimal TotalHours => entries.Sum(x => x.Hours);
+
+    protected override async Task OnInitializedAsync()
+    {
+        newEntry = CreateNewEntry();
+        await LoadEntries();
+    }
+
+    private async Task LoadEntries()
+    {
+        var weekEnd = weekStart.AddDays(7);
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        entries = await db.TimeEntries
+            .Where(x => x.WorkDate >= weekStart && x.WorkDate < weekEnd)
+            .OrderBy(x => x.WorkDate)
+            .ThenBy(x => x.Project)
+            .ThenBy(x => x.Task)
+            .AsNoTracking()
+            .ToListAsync();
+
+        projectTotals = entries
+            .GroupBy(x => x.Project)
+            .Select(x => new ProjectTotal(x.Key, x.Sum(y => y.Hours)))
+            .OrderBy(x => x.Project)
+            .ToList();
+    }
+
+    private async Task AddEntry()
+    {
+        if (!ValidateEntry(newEntry))
+        {
+            return;
+        }
+
+        CleanEntry(newEntry);
+
+        newEntry.CreatedDate = DateTimeOffset.Now;
+        newEntry.UpdatedDate = DateTimeOffset.Now;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        db.TimeEntries.Add(newEntry);
+        await db.SaveChangesAsync();
+
+        var previousProject = newEntry.Project;
+        newEntry = CreateNewEntry();
+        newEntry.Project = previousProject;
+
+        await LoadEntries();
+    }
+
+    private async Task UpdateEntry(TimeEntry entry)
+    {
+        if (!ValidateEntry(entry))
+        {
+            await LoadEntries();
+            return;
+        }
+
+        CleanEntry(entry);
+        entry.UpdatedDate = DateTimeOffset.Now;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        db.TimeEntries.Update(entry);
+        await db.SaveChangesAsync();
+
+        await LoadEntries();
+    }
+
+
+    private async Task EditEntry(TimeEntry entry)
+    {
+        if (grid is not null)
+        {
+            await grid.EditRow(entry);
+        }
+    }
+
+    private async Task SaveEntry(TimeEntry entry)
+    {
+        if (grid is not null)
+        {
+            await grid.UpdateRow(entry);
+        }
+    }
+
+    private void CancelEdit(TimeEntry entry)
+    {
+        grid?.CancelEditRow(entry);
+    }
+
+    private async Task DeleteEntry(TimeEntry entry)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        db.TimeEntries.Remove(entry);
+        await db.SaveChangesAsync();
+
+        await LoadEntries();
+    }
+
+    private async Task PreviousWeek()
+    {
+        weekStart = weekStart.AddDays(-7);
+        newEntry.WorkDate = weekStart;
+        await LoadEntries();
+    }
+
+    private async Task NextWeek()
+    {
+        weekStart = weekStart.AddDays(7);
+        newEntry.WorkDate = weekStart;
+        await LoadEntries();
+    }
+
+    private async Task ThisWeek()
+    {
+        weekStart = StartOfWeek(DateTime.Today);
+        newEntry.WorkDate = DateTime.Today;
+        await LoadEntries();
+    }
+
+    private bool ValidateEntry(TimeEntry entry)
+    {
+        if (string.IsNullOrWhiteSpace(entry.Project))
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Project is required.");
+            return false;
+        }
+
+        if (entry.Hours <= 0 || entry.Hours > 24)
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Hours must be between 0 and 24.");
+            return false;
+        }
+
+        return true;
+    }
+
+    private static void CleanEntry(TimeEntry entry)
+    {
+        entry.WorkDate = entry.WorkDate.Date;
+        entry.Project = entry.Project.Trim();
+        entry.Task = string.IsNullOrWhiteSpace(entry.Task) ? null : entry.Task.Trim();
+        entry.Notes = string.IsNullOrWhiteSpace(entry.Notes) ? null : entry.Notes.Trim();
+    }
+
+    private TimeEntry CreateNewEntry()
+    {
+        return new TimeEntry
+        {
+            WorkDate = DateTime.Today >= weekStart && DateTime.Today < weekStart.AddDays(7)
+                ? DateTime.Today
+                : weekStart,
+            Hours = 1
+        };
+    }
+
+    private static DateTime StartOfWeek(DateTime date)
+    {
+        var diff = (7 + (date.DayOfWeek - DayOfWeek.Monday)) % 7;
+        return date.Date.AddDays(-diff);
+    }
+
+    private sealed record ProjectTotal(string Project, decimal Hours);
+}

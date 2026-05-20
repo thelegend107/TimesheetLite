@@ -1,0 +1,17 @@
+@inherits LayoutComponentBase
+
+<RadzenComponents />
+
+<RadzenLayout>
+    <RadzenHeader>
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" class="app-header">
+            <RadzenLink Path="/" Text="Timesheet Lite" class="app-title" />
+        </RadzenStack>
+    </RadzenHeader>
+
+    <RadzenBody>
+        <main class="app-main">
+            @Body
+        </main>
+    </RadzenBody>
+</RadzenLayout>

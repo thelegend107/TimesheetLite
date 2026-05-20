@@ -1,0 +1,19 @@
+.app-header {
+    min-height: 56px;
+    padding: 0 1.5rem;
+    border-bottom: 1px solid var(--rz-border-color);
+    background: var(--rz-base-background-color);
+}
+
+.app-title {
+    color: var(--rz-text-title-color);
+    font-size: 1.05rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.app-main {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 1.5rem;
+}

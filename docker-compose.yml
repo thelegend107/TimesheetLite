@@ -1,0 +1,13 @@
+services:
+  timesheetlite:
+    build: .
+    container_name: timesheetlite
+    restart: unless-stopped
+    ports:
+      - "10.10.0.107:1000:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Production"
+      ASPNETCORE_URLS: "http://+:8080"
+      ConnectionStrings__DefaultConnection: "Server=host.docker.internal,1433;Database=TimesheetLite;User Id=YOUR_SQL_USER;Password=YOUR_SQL_PASSWORD;Encrypt=True;TrustServerCertificate=True;MultipleActiveResultSets=True"
