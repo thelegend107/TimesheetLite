@@ -4,10 +4,18 @@ services:
     container_name: timesheetlite
     restart: unless-stopped
     ports:
-      - "10.10.0.107:1000:8080"
+      - "10.10.0.107:1000:8443"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    volumes:
+      - type: bind
+        source: ./certs/timesheetlite.pfx
+        target: /https/timesheetlite.pfx
+        read_only: true
     environment:
       ASPNETCORE_ENVIRONMENT: "Production"
-      ASPNETCORE_URLS: "http://+:8080"
-      ConnectionStrings__DefaultConnection: "Server=host.docker.internal,1433;Database=TimesheetLite;User Id=YOUR_SQL_USER;Password=YOUR_SQL_PASSWORD;Encrypt=True;TrustServerCertificate=True;MultipleActiveResultSets=True"
+      ASPNETCORE_URLS: "https://+:8443;http://+:8080"
+      ASPNETCORE_HTTPS_PORTS: "8443"
+      Kestrel__Certificates__Default__Path: "/https/timesheetlite.pfx"
+      Kestrel__Certificates__Default__Password: "1234"
+      ConnectionStrings__DefaultConnection: "Server=10.10.0.107,11433;Database=Timesheet;User Id=sa;Password=devtime#1;TrustServerCertificate=True;MultipleActiveResultSets=True"

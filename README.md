@@ -6,8 +6,8 @@ It is intentionally plain:
 
 - one SQL Server table
 - one EF Core entity/context
-- one `/timesheet` page
-- manual date/project/task/hours/notes entry
+- one tracker page at `/` and `/timesheet`
+- manual date/project/task/from/to/notes entry
 - weekly navigation
 - inline edit/delete
 - weekly project totals
@@ -47,13 +47,25 @@ dotnet restore
 dotnet run
 ```
 
-Open the URL shown by `dotnet run`, then go to:
+Open the URL shown by `dotnet run`.
 
-```text
-/timesheet
-```
+The tracker is available at `/` and `/timesheet`.
 
 ## 3. Run with Docker
+
+The Docker Compose setup serves the app over HTTPS on port `1000`. It mounts this solution-local certificate:
+
+```text
+certs\timesheetlite.pfx
+```
+
+The certificate is self-signed, uses password `1234`, and includes `10.10.0.107` in its SANs. The compose file mounts it inside the container at:
+
+```text
+/https/timesheetlite.pfx
+```
+
+The certificate file is ignored by git.
 
 Edit `docker-compose.yml` and replace:
 
@@ -65,7 +77,7 @@ YOUR_SQL_PASSWORD
 The included Compose file assumes SQL Server is running on the Docker host and maps the app to:
 
 ```text
-http://10.10.0.107:1000
+https://10.10.0.107:1000
 ```
 
 Run:
@@ -77,8 +89,10 @@ docker compose up -d --build
 Open:
 
 ```text
-http://10.10.0.107:1000/timesheet
+https://10.10.0.107:1000
 ```
+
+For a self-signed development certificate, your browser may require trusting the certificate or accepting the warning.
 
 ## 4. SQL Server connection notes
 

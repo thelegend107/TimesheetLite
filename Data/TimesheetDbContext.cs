@@ -24,7 +24,14 @@ public class TimesheetDbContext(DbContextOptions<TimesheetDbContext> options) : 
                 .IsRequired();
 
             entity.Property(x => x.Task)
-                .HasMaxLength(100);
+                .HasMaxLength(100)
+                .IsRequired();
+
+            entity.Property(x => x.StartTime)
+                .HasColumnType("time(0)");
+
+            entity.Property(x => x.EndTime)
+                .HasColumnType("time(0)");
 
             entity.Property(x => x.Hours)
                 .HasPrecision(5, 2);

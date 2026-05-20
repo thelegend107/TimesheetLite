@@ -8,7 +8,11 @@ public class TimeEntry
 
     public string Project { get; set; } = "";
 
-    public string? Task { get; set; }
+    public string Task { get; set; } = "";
+
+    public TimeOnly? StartTime { get; set; }
+
+    public TimeOnly? EndTime { get; set; }
 
     public decimal Hours { get; set; }
 

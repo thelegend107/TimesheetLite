@@ -1,10 +1,85 @@
 html, body {
     margin: 0;
     min-height: 100%;
+    color-scheme: light dark;
 }
 
 body {
     background: var(--rz-base-background-color);
+}
+
+[data-theme="dark"] {
+    --rz-base-background-color: #17191d;
+    --rz-card-background-color: #202329;
+    --rz-text-title-color: #ece7df;
+    --rz-text-color: #d8d2c8;
+    --rz-text-secondary-color: #b5ada2;
+    --rz-text-tertiary-color: #8f968f;
+    --rz-border-color: #373b43;
+    --rz-input-background-color: #242830;
+    --rz-input-border-color: #404652;
+    --rz-primary: #7aa2d6;
+    --rz-primary-light: #9ab9df;
+    --rz-primary-lighter: rgba(122, 162, 214, 0.18);
+}
+
+[data-theme="dark"] body {
+    background: #17191d;
+    color: var(--rz-text-color);
+}
+
+[data-theme="dark"] .rz-header {
+    background: rgba(26, 29, 34, 0.96);
+    border-color: #343942;
+}
+
+[data-theme="dark"] .rz-card {
+    background-color: #202329;
+    border-color: #333842;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="dark"] .rz-datatable,
+[data-theme="dark"] .rz-grid-table,
+[data-theme="dark"] .rz-datatable-data td,
+[data-theme="dark"] .rz-datatable-thead th {
+    background-color: #202329;
+    border-color: #333842;
+}
+
+[data-theme="dark"] .rz-datatable-thead th {
+    background-color: #252a32;
+    color: var(--rz-text-title-color);
+}
+
+[data-theme="dark"] .rz-inputtext,
+[data-theme="dark"] .rz-dropdown,
+[data-theme="dark"] .rz-spinner,
+[data-theme="dark"] textarea {
+    background-color: #242830;
+    border-color: #404652;
+    color: var(--rz-text-color);
+}
+
+[data-theme="dark"] .timesheet-muted {
+    color: #aaa49b;
+    opacity: 1;
+}
+
+[data-theme="dark"] .timesheet-entry-card {
+    border-top-color: #7aa2d6;
+}
+
+[data-theme="dark"] .timesheet-today-button:not(.rz-primary) {
+    background: rgba(122, 162, 214, 0.12);
+    border-color: rgba(122, 162, 214, 0.3);
+    color: #d9e5f5;
+}
+
+[data-theme="dark"] .timesheet-error {
+    border-color: rgba(224, 175, 104, 0.35);
+    background: rgba(224, 175, 104, 0.12);
+    color: #e8c993;
 }
 
 h1, h2, h3, h4 {
@@ -46,6 +121,27 @@ h1, h2, h3, h4 {
     border-top: 4px solid var(--rz-primary);
 }
 
+.timesheet-day-nav-card {
+    padding-block: 0.75rem;
+}
+
+.timesheet-day-buttons {
+    display: flex;
+    flex: 1 1 420px;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.timesheet-day-button {
+    min-width: 5.25rem;
+}
+
+.timesheet-today-button:not(.rz-primary) {
+    background: color-mix(in srgb, var(--rz-primary) 10%, transparent);
+    border-color: color-mix(in srgb, var(--rz-primary) 32%, var(--rz-border-color));
+}
+
 .timesheet-total {
     color: var(--rz-text-title-color);
     font-size: 1rem;
@@ -66,6 +162,37 @@ h1, h2, h3, h4 {
 
 .timesheet-add-button {
     min-width: 84px;
+}
+
+.timesheet-project-picker,
+.timesheet-new-project {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.timesheet-new-project {
+    margin-top: 0.5rem;
+}
+
+.timesheet-icon-button {
+    flex: 0 0 auto;
+    min-width: 2.5rem;
+}
+
+.timesheet-time-input {
+    width: 100%;
+}
+
+.timesheet-duration,
+.timesheet-grid-duration {
+    min-height: 2.375rem;
+    border: 1px solid var(--rz-input-border-color);
+    border-radius: var(--rz-input-border-radius);
+    background: var(--rz-input-background-color);
+    color: var(--rz-text-title-color);
+    font-weight: 700;
+    padding: 0.5rem 0.75rem;
 }
 
 @media (max-width: 768px) {

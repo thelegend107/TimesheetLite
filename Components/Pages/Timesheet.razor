@@ -5,29 +5,59 @@
 
 <PageTitle>Timesheet Lite</PageTitle>
 
-<RadzenStack Gap="1rem" class="timesheet-page">
-    <RadzenRow AlignItems="AlignItems.Center" class="timesheet-hero">
-        <RadzenColumn Size="12" SizeMD="7">
-            <h1>Time tracker</h1>
-            <div class="timesheet-muted">
-                @weekStart.ToString("MMM d, yyyy") - @weekStart.AddDays(6).ToString("MMM d, yyyy")
-            </div>
-        </RadzenColumn>
+<datalist id="timesheet-time-options">
+    @foreach (var option in TimeOptions)
+    {
+        <option value="@option"></option>
+    }
+</datalist>
 
-        <RadzenColumn Size="12" SizeMD="5">
-            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-                <RadzenButton Text="Previous" Icon="chevron_left" Click="@PreviousWeek" />
-                <RadzenButton Text="This Week" ButtonStyle="ButtonStyle.Secondary" Click="@ThisWeek" />
-                <RadzenButton Text="Next" Icon="chevron_right" IconPosition="IconPosition.Right" Click="@NextWeek" />
-            </RadzenStack>
-        </RadzenColumn>
-    </RadzenRow>
+<RadzenStack Gap="1rem" class="timesheet-page">
+    <RadzenCard class="timesheet-card">
+        <RadzenRow AlignItems="AlignItems.Center" class="timesheet-hero">
+            <RadzenColumn Size="12" SizeMD="7">
+                <h1>TimeTracker</h1>
+                <div class="timesheet-muted">
+                    @newEntry.WorkDate.ToString("dddd, MMM d, yyyy")
+                </div>
+                <div class="timesheet-muted">
+                    Week of @weekStart.ToString("MMM d") - @weekStart.AddDays(6).ToString("MMM d, yyyy")
+                </div>
+            </RadzenColumn>
+
+            <RadzenColumn Size="12" SizeMD="5">
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                    <RadzenButton Text="Previous" Icon="chevron_left" Click="@PreviousWeek" />
+                    <RadzenButton Text="This Week" ButtonStyle="ButtonStyle.Secondary" Click="@ThisWeek" />
+                    <RadzenButton Text="Next" Icon="chevron_right" IconPosition="IconPosition.Right" Click="@NextWeek" />
+                </RadzenStack>
+            </RadzenColumn>
+        </RadzenRow>
+    </RadzenCard>
+
+    <RadzenCard class="timesheet-card timesheet-day-nav-card">
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Gap="0.75rem" Wrap="FlexWrap.Wrap">
+            <RadzenButton Icon="chevron_left" Text="Previous Day" Click="@PreviousDay" ButtonStyle="ButtonStyle.Secondary" />
+
+            <div class="timesheet-day-buttons">
+                @foreach (var day in WeekDays)
+                {
+                    <RadzenButton Text="@day.ToString("ddd d")"
+                                  ButtonStyle="@(day.Date == newEntry.WorkDate.Date ? ButtonStyle.Primary : ButtonStyle.Light)"
+                                  Click="@(() => SelectWorkDate(day))"
+                                  class="@GetDayButtonClass(day)" />
+                }
+            </div>
+
+            <RadzenButton Icon="chevron_right" IconPosition="IconPosition.Right" Text="Next Day" Click="@NextDay" ButtonStyle="ButtonStyle.Secondary" />
+        </RadzenStack>
+    </RadzenCard>
 
     <RadzenCard class="timesheet-card timesheet-entry-card">
         <RadzenStack Gap="0.75rem">
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Gap="1rem" Wrap="FlexWrap.Wrap">
                 <h2>Add time</h2>
-                <div class="timesheet-total">@TotalHours.ToString("0.##") hours this week</div>
+                <div class="timesheet-total">@TotalHours.ToString("0.##") hours this day</div>
             </RadzenStack>
 
             @if (!string.IsNullOrWhiteSpace(loadError))
@@ -35,37 +65,83 @@
                 <div class="timesheet-error">@loadError</div>
             }
 
-            <RadzenRow>
-                <RadzenColumn Size="12" SizeMD="2">
-                    <RadzenLabel Text="Date" />
-                    <RadzenDatePicker @bind-Value="newEntry.WorkDate" DateFormat="M/d/yyyy" Style="width: 100%;" />
-                </RadzenColumn>
+            <RadzenColumn>
+                <RadzenRow JustifyContent="JustifyContent.SpaceBetween">
+                    <RadzenColumn>
+                        <RadzenLabel Text="Date" />
+                        <RadzenDatePicker @bind-Value="newEntry.WorkDate" Change="@OnNewWorkDateChanged" DateFormat="M/d/yyyy" Style="width: 100%;" />
+                    </RadzenColumn>
 
-                <RadzenColumn Size="12" SizeMD="2">
-                    <RadzenLabel Text="Project" />
-                    <RadzenTextBox @bind-Value="newEntry.Project" Style="width: 100%;" />
-                </RadzenColumn>
+                    <RadzenColumn>
+                        <RadzenLabel Text="Project *" />
+                        <div class="timesheet-project-picker">
+                            <RadzenDropDown TValue="string"
+                                            @bind-Value="newEntry.Project"
+                                            Data="@projectOptions"
+                                            AllowFiltering="true"
+                                            OpenOnFocus="true"
+                                            FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                            FilterPlaceholder="Search projects"
+                                            Placeholder="Select project"
+                                            Style="width: 100%;" />
+                            <RadzenButton Icon="add" ButtonStyle="ButtonStyle.Secondary" Click="@(() => ShowNewProject())" class="timesheet-icon-button" />
+                        </div>
 
-                <RadzenColumn Size="12" SizeMD="2">
-                    <RadzenLabel Text="Task" />
-                    <RadzenTextBox @bind-Value="newEntry.Task" Style="width: 100%;" />
-                </RadzenColumn>
+                        @if (showNewProject)
+                        {
+                            <div class="timesheet-new-project">
+                                <RadzenTextBox @bind-Value="newProjectName" Placeholder="New project" Style="width: 100%;" />
+                                <RadzenButton Icon="check" Click="@AddNewProject" class="timesheet-icon-button" />
+                                <RadzenButton Icon="close" ButtonStyle="ButtonStyle.Secondary" Click="@CancelNewProject" class="timesheet-icon-button" />
+                            </div>
+                        }
+                    </RadzenColumn>
 
-                <RadzenColumn Size="12" SizeMD="2">
-                    <RadzenLabel Text="Hours" />
-                    <RadzenNumeric TValue="decimal" @bind-Value="newEntry.Hours" Min="0" Max="24" Step="0.25" Style="width: 100%;" />
-                </RadzenColumn>
+                    <RadzenColumn>
+                        <RadzenLabel Text="Task *" />
+                        <RadzenTextBox @bind-Value="newEntry.Task" Style="width: 100%;" />
+                    </RadzenColumn>
+                </RadzenRow>
 
-                <RadzenColumn Size="12" SizeMD="3">
+                <RadzenRow JustifyContent="JustifyContent.SpaceBetween">
+                    <RadzenColumn>
+                        <RadzenLabel Text="From" />
+                        <input type="text"
+                               class="rz-inputtext rz-textbox timesheet-time-input"
+                               @bind="newStartTimeText"
+                               @bind:event="oninput"
+                               @onblur="NormalizeNewStartTime"
+                               list="timesheet-time-options"
+                               placeholder="8:00 AM" />
+                    </RadzenColumn>
+
+                    <RadzenColumn>
+                        <RadzenLabel Text="To" />
+                        <input type="text"
+                               class="rz-inputtext rz-textbox timesheet-time-input"
+                               @bind="newEndTimeText"
+                               @bind:event="oninput"
+                               @onblur="NormalizeNewEndTime"
+                               list="timesheet-time-options"
+                               placeholder="" />
+                    </RadzenColumn>
+
+                    <RadzenColumn>
+                        <RadzenLabel Text="Hours" />
+                        <div class="timesheet-duration">@NewEntryHoursPreview</div>
+                    </RadzenColumn>
+                </RadzenRow>
+
+                <RadzenColumn>
                     <RadzenLabel Text="Notes" />
-                    <RadzenTextBox @bind-Value="newEntry.Notes" Style="width: 100%;" />
+                    <RadzenTextArea @bind-Value="newEntry.Notes" Style="width: 100%;" Rows="5" />
                 </RadzenColumn>
+            </RadzenColumn>
 
-                <RadzenColumn Size="12" SizeMD="1">
-                    <RadzenLabel Text="&nbsp;" />
-                    <RadzenButton Text="Add" Icon="add" Click="@AddEntry" Style="width: 100%;" class="timesheet-add-button" />
-                </RadzenColumn>
-            </RadzenRow>
+            <RadzenColumn Size="12" SizeMD="1">
+                <RadzenLabel Text="&nbsp;" />
+                <RadzenButton Text="Add" Icon="add" Click="@AddEntry" Style="width: 100%;" class="timesheet-add-button" />
+            </RadzenColumn>
         </RadzenStack>
     </RadzenCard>
 
@@ -81,7 +157,7 @@
                         RowUpdate="@UpdateEntry"
                         AllowSorting="true"
                         AllowPaging="false"
-                        EmptyText="No time entries for this week yet."
+                        EmptyText="No time entries for this day yet."
                         Style="margin-top: 1rem;">
             <Columns>
                 <RadzenDataGridColumn TItem="TimeEntry" Property="WorkDate" Title="Date" Width="140px">
@@ -95,7 +171,15 @@
 
                 <RadzenDataGridColumn TItem="TimeEntry" Property="Project" Title="Project" Width="180px">
                     <EditTemplate Context="entry">
-                        <RadzenTextBox @bind-Value="entry.Project" Style="width: 100%;" />
+                        <RadzenDropDown TValue="string"
+                                        @bind-Value="entry.Project"
+                                        Data="@projectOptions"
+                                        AllowFiltering="true"
+                                        OpenOnFocus="true"
+                                        FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                        FilterPlaceholder="Search projects"
+                                        Placeholder="Select project"
+                                        Style="width: 100%;" />
                     </EditTemplate>
                 </RadzenDataGridColumn>
 
@@ -105,12 +189,42 @@
                     </EditTemplate>
                 </RadzenDataGridColumn>
 
+                <RadzenDataGridColumn TItem="TimeEntry" Property="StartTime" Title="From" Width="120px">
+                    <Template Context="entry">
+                        @FormatTime(entry.StartTime)
+                    </Template>
+                    <EditTemplate Context="entry">
+                        <input type="text"
+                               class="rz-inputtext rz-textbox timesheet-time-input"
+                               value="@GetEditStartTimeText(entry)"
+                               @oninput="args => SetEditStartTimeText(entry, args.Value)"
+                               @onblur="() => NormalizeStartTime(entry)"
+                               list="timesheet-time-options"
+                               placeholder="8:00 AM" />
+                    </EditTemplate>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="TimeEntry" Property="EndTime" Title="To" Width="120px">
+                    <Template Context="entry">
+                        @FormatTime(entry.EndTime)
+                    </Template>
+                    <EditTemplate Context="entry">
+                        <input type="text"
+                               class="rz-inputtext rz-textbox timesheet-time-input"
+                               value="@GetEditEndTimeText(entry)"
+                               @oninput="args => SetEditEndTimeText(entry, args.Value)"
+                               @onblur="() => NormalizeEndTime(entry)"
+                               list="timesheet-time-options"
+                               placeholder="" />
+                    </EditTemplate>
+                </RadzenDataGridColumn>
+
                 <RadzenDataGridColumn TItem="TimeEntry" Property="Hours" Title="Hours" Width="120px">
                     <Template Context="entry">
                         @entry.Hours.ToString("0.##")
                     </Template>
                     <EditTemplate Context="entry">
-                        <RadzenNumeric TValue="decimal" @bind-Value="entry.Hours" Min="0" Max="24" Step="0.25" Style="width: 100%;" />
+                        <div class="timesheet-grid-duration">@GetDurationText(entry)</div>
                     </EditTemplate>
                 </RadzenDataGridColumn>
 
@@ -159,17 +273,31 @@
     private RadzenDataGrid<TimeEntry>? grid;
 
     private DateTime weekStart = StartOfWeek(DateTime.Today);
+    private List<TimeEntry> weekEntries = [];
     private List<TimeEntry> entries = [];
     private List<ProjectTotal> projectTotals = [];
     private TimeEntry newEntry = new();
+    private string newStartTimeText = "";
+    private string newEndTimeText = "";
+    private string newProjectName = "";
     private string? loadError;
+    private bool showNewProject;
+    private List<string> projectOptions = [];
+    private readonly Dictionary<int, string> editStartTimeText = [];
+    private readonly Dictionary<int, string> editEndTimeText = [];
+    private static IReadOnlyList<string> TimeOptions { get; } = BuildTimeOptions();
 
     private decimal TotalHours => entries.Sum(x => x.Hours);
+    private IEnumerable<DateTime> WeekDays => Enumerable.Range(0, 7).Select(dayOffset => weekStart.AddDays(dayOffset));
+    private string NewEntryHoursPreview => TryCalculateHours(newStartTimeText, newEndTimeText, out var hours)
+        ? hours.ToString("0.##")
+        : "-";
 
     protected override async Task OnInitializedAsync()
     {
         newEntry = CreateNewEntry();
         await LoadEntries();
+        ReseedNewEntryStartTimeFromLastEntry();
     }
 
     private async Task LoadEntries()
@@ -180,7 +308,7 @@
         {
             await using var db = await DbFactory.CreateDbContextAsync();
 
-            entries = await db.TimeEntries
+            weekEntries = await db.TimeEntries
                 .Where(x => x.WorkDate >= weekStart && x.WorkDate < weekEnd)
                 .OrderBy(x => x.WorkDate)
                 .ThenBy(x => x.Project)
@@ -188,16 +316,20 @@
                 .AsNoTracking()
                 .ToListAsync();
 
-            projectTotals = entries
+            entries = GetEntriesForDate(newEntry.WorkDate);
+
+            projectTotals = weekEntries
                 .GroupBy(x => x.Project)
                 .Select(x => new ProjectTotal(x.Key, x.Sum(y => y.Hours)))
                 .OrderBy(x => x.Project)
                 .ToList();
 
+            await LoadProjectOptions(db);
             loadError = null;
         }
         catch
         {
+            weekEntries = [];
             entries = [];
             projectTotals = [];
             loadError = "Entries could not be loaded. Check the database connection, then refresh.";
@@ -206,12 +338,15 @@
 
     private async Task AddEntry()
     {
+        ApplyNewEntryTimes();
+
         if (!ValidateEntry(newEntry))
         {
             return;
         }
 
         CleanEntry(newEntry);
+        AddProjectOption(newEntry.Project);
 
         newEntry.CreatedDate = DateTimeOffset.Now;
         newEntry.UpdatedDate = DateTimeOffset.Now;
@@ -230,14 +365,20 @@
         }
 
         var previousProject = newEntry.Project;
-        newEntry = CreateNewEntry();
-        newEntry.Project = previousProject;
+        var previousWorkDate = newEntry.WorkDate;
+        var fallbackStartTime = newEntry.EndTime;
 
         await LoadEntries();
+
+        var nextStartTime = GetLastEndTimeForDate(previousWorkDate) ?? fallbackStartTime;
+        newEntry = CreateNewEntry(previousWorkDate, nextStartTime);
+        newEntry.Project = previousProject;
     }
 
     private async Task UpdateEntry(TimeEntry entry)
     {
+        ApplyEntryHours(entry);
+
         if (!ValidateEntry(entry))
         {
             await LoadEntries();
@@ -245,6 +386,7 @@
         }
 
         CleanEntry(entry);
+        AddProjectOption(entry.Project);
         entry.UpdatedDate = DateTimeOffset.Now;
 
         await using var db = await DbFactory.CreateDbContextAsync();
@@ -261,6 +403,7 @@
             return;
         }
 
+        ClearEditTimeText(entry);
         await LoadEntries();
     }
 
@@ -269,6 +412,7 @@
     {
         if (grid is not null)
         {
+            SeedEditTimeText(entry);
             await grid.EditRow(entry);
         }
     }
@@ -284,6 +428,7 @@
     private void CancelEdit(TimeEntry entry)
     {
         grid?.CancelEditRow(entry);
+        ClearEditTimeText(entry);
     }
 
     private async Task DeleteEntry(TimeEntry entry)
@@ -307,22 +452,66 @@
     private async Task PreviousWeek()
     {
         weekStart = weekStart.AddDays(-7);
-        newEntry.WorkDate = weekStart;
+        newEntry = CreateNewEntry(weekStart);
         await LoadEntries();
+        ReseedNewEntryStartTimeFromLastEntry();
     }
 
     private async Task NextWeek()
     {
         weekStart = weekStart.AddDays(7);
-        newEntry.WorkDate = weekStart;
+        newEntry = CreateNewEntry(weekStart);
         await LoadEntries();
+        ReseedNewEntryStartTimeFromLastEntry();
     }
 
     private async Task ThisWeek()
     {
         weekStart = StartOfWeek(DateTime.Today);
-        newEntry.WorkDate = DateTime.Today;
+        newEntry = CreateNewEntry(DateTime.Today);
         await LoadEntries();
+        ReseedNewEntryStartTimeFromLastEntry();
+    }
+
+    private async Task PreviousDay()
+    {
+        await SelectWorkDate(newEntry.WorkDate.AddDays(-1));
+    }
+
+    private async Task NextDay()
+    {
+        await SelectWorkDate(newEntry.WorkDate.AddDays(1));
+    }
+
+    private async Task SelectWorkDate(DateTime workDate)
+    {
+        if (workDate < weekStart || workDate >= weekStart.AddDays(7))
+        {
+            weekStart = StartOfWeek(workDate);
+            newEntry = CreateNewEntry(workDate);
+            await LoadEntries();
+        }
+
+        var nextStartTime = GetLastEndTimeForDate(workDate);
+        newEntry = CreateNewEntry(workDate, nextStartTime);
+        entries = GetEntriesForDate(workDate);
+    }
+
+    private async Task OnNewWorkDateChanged(DateTime? workDate)
+    {
+        if (workDate is null)
+        {
+            return;
+        }
+
+        await SelectWorkDate(workDate.Value);
+    }
+
+    private string GetDayButtonClass(DateTime day)
+    {
+        return day.Date == DateTime.Today
+            ? "timesheet-day-button timesheet-today-button"
+            : "timesheet-day-button";
     }
 
     private bool ValidateEntry(TimeEntry entry)
@@ -330,6 +519,18 @@
         if (string.IsNullOrWhiteSpace(entry.Project))
         {
             NotificationService.Notify(NotificationSeverity.Warning, "Project is required.");
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(entry.Task))
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Task is required.");
+            return false;
+        }
+
+        if (entry.StartTime is null || entry.EndTime is null)
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "From and To times are required.");
             return false;
         }
 
@@ -346,19 +547,410 @@
     {
         entry.WorkDate = entry.WorkDate.Date;
         entry.Project = entry.Project.Trim();
-        entry.Task = string.IsNullOrWhiteSpace(entry.Task) ? null : entry.Task.Trim();
+        entry.Task = entry.Task?.Trim() ?? "";
         entry.Notes = string.IsNullOrWhiteSpace(entry.Notes) ? null : entry.Notes.Trim();
     }
 
-    private TimeEntry CreateNewEntry()
+    private async Task LoadProjectOptions(TimesheetDbContext db)
     {
-        return new TimeEntry
+        var projects = await db.TimeEntries
+            .Select(x => x.Project)
+            .Distinct()
+            .OrderBy(x => x)
+            .AsNoTracking()
+            .ToListAsync();
+
+        projectOptions = projects
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToList();
+
+        AddProjectOption(newEntry.Project);
+    }
+
+    private void AddNewProject()
+    {
+        var project = CleanProjectName(newProjectName);
+
+        if (string.IsNullOrWhiteSpace(project))
         {
-            WorkDate = DateTime.Today >= weekStart && DateTime.Today < weekStart.AddDays(7)
+            NotificationService.Notify(NotificationSeverity.Warning, "Project name is required.");
+            return;
+        }
+
+        AddProjectOption(project);
+        newEntry.Project = project;
+        newProjectName = "";
+        showNewProject = false;
+    }
+
+    private void ShowNewProject()
+    {
+        newProjectName = "";
+        showNewProject = true;
+    }
+
+    private void CancelNewProject()
+    {
+        newProjectName = "";
+        showNewProject = false;
+    }
+
+    private void AddProjectOption(string? project)
+    {
+        var cleanedProject = CleanProjectName(project);
+
+        if (string.IsNullOrWhiteSpace(cleanedProject)
+            || projectOptions.Any(x => string.Equals(x, cleanedProject, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        projectOptions.Add(cleanedProject);
+        projectOptions = projectOptions
+            .OrderBy(x => x)
+            .ToList();
+    }
+
+    private static string CleanProjectName(string? project)
+    {
+        return project?.Trim() ?? "";
+    }
+
+    private TimeEntry CreateNewEntry(DateTime? workDate = null, TimeOnly? startTime = null)
+    {
+        var entryWorkDate = workDate?.Date
+            ?? (DateTime.Today >= weekStart && DateTime.Today < weekStart.AddDays(7)
                 ? DateTime.Today
-                : weekStart,
-            Hours = 1
+                : weekStart);
+
+        var entry = new TimeEntry
+        {
+            WorkDate = entryWorkDate,
+            StartTime = startTime ?? new TimeOnly(8, 0),
+            EndTime = null,
+            Hours = 0
         };
+
+        newStartTimeText = FormatTime(entry.StartTime);
+        newEndTimeText = FormatTime(entry.EndTime);
+
+        return entry;
+    }
+
+    private TimeOnly? GetLastEndTimeForDate(DateTime workDate)
+    {
+        return weekEntries
+            .Where(x => x.WorkDate.Date == workDate.Date && x.EndTime is not null)
+            .OrderByDescending(x => x.EndTime)
+            .Select(x => x.EndTime)
+            .FirstOrDefault();
+    }
+
+    private List<TimeEntry> GetEntriesForDate(DateTime workDate)
+    {
+        return weekEntries
+            .Where(x => x.WorkDate.Date == workDate.Date)
+            .OrderByDescending(x => x.StartTime)
+            .ThenByDescending(x => x.EndTime)
+            .ThenBy(x => x.Project)
+            .ThenBy(x => x.Task)
+            .ToList();
+    }
+
+    private void ReseedNewEntryStartTimeFromLastEntry()
+    {
+        var previousProject = newEntry.Project;
+        var nextStartTime = GetLastEndTimeForDate(newEntry.WorkDate);
+
+        if (nextStartTime is null)
+        {
+            return;
+        }
+
+        newEntry = CreateNewEntry(newEntry.WorkDate, nextStartTime);
+        newEntry.Project = previousProject;
+    }
+
+    private void ApplyNewEntryTimes()
+    {
+        newEntry.StartTime = TryParseTime(newStartTimeText, out var startTime) ? startTime : null;
+        newEntry.EndTime = TryParseTime(newEndTimeText, out var endTime) ? endTime : null;
+
+        ApplyEntryHours(newEntry);
+    }
+
+    private static void ApplyEntryHours(TimeEntry entry)
+    {
+        if (entry.StartTime is null || entry.EndTime is null)
+        {
+            return;
+        }
+
+        entry.Hours = CalculateHours(entry.StartTime.Value, entry.EndTime.Value);
+    }
+
+    private static decimal CalculateHours(TimeOnly startTime, TimeOnly endTime)
+    {
+        var duration = endTime - startTime;
+
+        if (duration <= TimeSpan.Zero)
+        {
+            duration += TimeSpan.FromDays(1);
+        }
+
+        return decimal.Round((decimal)duration.TotalHours, 2);
+    }
+
+    private static string GetDurationText(TimeEntry entry)
+    {
+        if (entry.StartTime is null || entry.EndTime is null)
+        {
+            return "-";
+        }
+
+        return CalculateHours(entry.StartTime.Value, entry.EndTime.Value).ToString("0.##");
+    }
+
+    private static string FormatTime(TimeOnly? time)
+    {
+        return time?.ToString("h:mm tt") ?? "";
+    }
+
+    private static bool TryCalculateHours(string startTimeText, string endTimeText, out decimal hours)
+    {
+        hours = 0;
+
+        if (!TryParseTime(startTimeText, out var startTime) || !TryParseTime(endTimeText, out var endTime))
+        {
+            return false;
+        }
+
+        hours = CalculateHours(startTime, endTime);
+        return true;
+    }
+
+    private static bool TryParseTime(string? value, out TimeOnly time)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            time = default;
+            return false;
+        }
+
+        var cleaned = value.Trim();
+
+        if (TimeOnly.TryParse(cleaned, out var parsed))
+        {
+            time = parsed;
+            return true;
+        }
+
+        if (TryParseCompactTime(cleaned, out parsed))
+        {
+            time = parsed;
+            return true;
+        }
+
+        time = default;
+        return false;
+    }
+
+    private static bool TryParseCompactTime(string value, out TimeOnly time)
+    {
+        time = default;
+
+        var compact = value
+            .Trim()
+            .Replace(" ", "", StringComparison.Ordinal)
+            .Replace(".", "", StringComparison.Ordinal)
+            .ToUpperInvariant();
+
+        var meridiem = "";
+
+        if (compact.EndsWith("AM", StringComparison.Ordinal) || compact.EndsWith("PM", StringComparison.Ordinal))
+        {
+            meridiem = compact[^2..];
+            compact = compact[..^2];
+        }
+        else if (compact.EndsWith("A", StringComparison.Ordinal) || compact.EndsWith("P", StringComparison.Ordinal))
+        {
+            meridiem = compact[^1] == 'A' ? "AM" : "PM";
+            compact = compact[..^1];
+        }
+
+        if (compact.Length == 0 || compact.Any(x => !char.IsDigit(x)))
+        {
+            return false;
+        }
+
+        int hour;
+        int minute;
+
+        if (compact.Length <= 2)
+        {
+            var number = int.Parse(compact);
+
+            if (meridiem.Length > 0 && number is >= 13 and <= 59)
+            {
+                hour = number / 10;
+                minute = number;
+            }
+            else
+            {
+                hour = number;
+                minute = 0;
+            }
+        }
+        else if (compact.Length == 3)
+        {
+            hour = int.Parse(compact[..1]);
+            minute = int.Parse(compact[1..]);
+        }
+        else if (compact.Length == 4)
+        {
+            hour = int.Parse(compact[..2]);
+            minute = int.Parse(compact[2..]);
+        }
+        else
+        {
+            return false;
+        }
+
+        if (minute is < 0 or > 59)
+        {
+            return false;
+        }
+
+        if (meridiem.Length > 0)
+        {
+            if (hour is < 1 or > 12)
+            {
+                return false;
+            }
+
+            if (meridiem == "PM" && hour < 12)
+            {
+                hour += 12;
+            }
+            else if (meridiem == "AM" && hour == 12)
+            {
+                hour = 0;
+            }
+        }
+        else if (hour is < 0 or > 23)
+        {
+            return false;
+        }
+
+        time = new TimeOnly(hour, minute);
+        return true;
+    }
+
+    private void NormalizeNewStartTime()
+    {
+        newStartTimeText = NormalizeTimeText(newStartTimeText);
+        ApplyNewEntryTimes();
+    }
+
+    private void NormalizeNewEndTime()
+    {
+        newEndTimeText = NormalizeTimeText(newEndTimeText);
+        ApplyNewEntryTimes();
+    }
+
+    private void NormalizeStartTime(TimeEntry entry)
+    {
+        var text = NormalizeTimeText(GetEditStartTimeText(entry));
+        editStartTimeText[entry.Id] = text;
+        SetStartTime(entry, text);
+    }
+
+    private void NormalizeEndTime(TimeEntry entry)
+    {
+        var text = NormalizeTimeText(GetEditEndTimeText(entry));
+        editEndTimeText[entry.Id] = text;
+        SetEndTime(entry, text);
+    }
+
+    private static string NormalizeTimeText(string? value)
+    {
+        return TryParseTime(value, out var time) ? FormatTime(time) : value?.Trim() ?? "";
+    }
+
+    private void SeedEditTimeText(TimeEntry entry)
+    {
+        editStartTimeText[entry.Id] = FormatTime(entry.StartTime);
+        editEndTimeText[entry.Id] = FormatTime(entry.EndTime);
+    }
+
+    private void ClearEditTimeText(TimeEntry entry)
+    {
+        editStartTimeText.Remove(entry.Id);
+        editEndTimeText.Remove(entry.Id);
+    }
+
+    private string GetEditStartTimeText(TimeEntry entry)
+    {
+        if (!editStartTimeText.TryGetValue(entry.Id, out var text))
+        {
+            text = FormatTime(entry.StartTime);
+            editStartTimeText[entry.Id] = text;
+        }
+
+        return text;
+    }
+
+    private string GetEditEndTimeText(TimeEntry entry)
+    {
+        if (!editEndTimeText.TryGetValue(entry.Id, out var text))
+        {
+            text = FormatTime(entry.EndTime);
+            editEndTimeText[entry.Id] = text;
+        }
+
+        return text;
+    }
+
+    private void SetEditStartTimeText(TimeEntry entry, object? value)
+    {
+        editStartTimeText[entry.Id] = value?.ToString() ?? "";
+    }
+
+    private void SetEditEndTimeText(TimeEntry entry, object? value)
+    {
+        editEndTimeText[entry.Id] = value?.ToString() ?? "";
+    }
+
+    private static void SetStartTime(TimeEntry entry, object? value)
+    {
+        if (TryParseTime(value?.ToString(), out var time))
+        {
+            entry.StartTime = time;
+            ApplyEntryHours(entry);
+        }
+    }
+
+    private static IReadOnlyList<string> BuildTimeOptions()
+    {
+        var options = new List<string>();
+        var time = TimeOnly.MinValue;
+
+        for (var i = 0; i < 96; i++)
+        {
+            options.Add(time.ToString("h:mm tt"));
+            time = time.AddMinutes(15);
+        }
+
+        return options;
+    }
+
+    private static void SetEndTime(TimeEntry entry, object? value)
+    {
+        if (TryParseTime(value?.ToString(), out var time))
+        {
+            entry.EndTime = time;
+            ApplyEntryHours(entry);
+        }
     }
 
     private static DateTime StartOfWeek(DateTime date)

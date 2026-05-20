@@ -1,17 +1,61 @@
 @inherits LayoutComponentBase
+@inject IJSRuntime JS
 
 <RadzenComponents />
 
 <RadzenLayout>
-    <RadzenHeader>
-        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" class="app-header">
-            <RadzenLink Path="/" Text="Timesheet Lite" class="app-title" />
-        </RadzenStack>
+    <RadzenHeader Style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0rem 1rem 0rem 1rem">
+        <RadzenLink Path="/" Text="Timesheet Lite - Moe Ayoub" class="app-title" />
+        <RadzenButton Icon="@themeIcon" Text="@themeLabel" ButtonStyle="ButtonStyle.Secondary" Click="@CycleTheme" class="theme-toggle" />
     </RadzenHeader>
 
-    <RadzenBody>
-        <main class="app-main">
+    <RadzenBody Style="display: flex; flex-direction: column; min-height: 100vh; align-items: center;">
+        <main class="app-main" style="max-width: 80lvw;">
             @Body
         </main>
     </RadzenBody>
 </RadzenLayout>
+
+@code {
+    private string themeLabel = "Auto";
+    private string themeIcon = "brightness_auto";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var state = await JS.InvokeAsync<ThemeState>("timesheetLiteTheme.get");
+        SetThemeLabel(state.Preference, state.Effective);
+        StateHasChanged();
+    }
+
+    private async Task CycleTheme()
+    {
+        var state = await JS.InvokeAsync<ThemeState>("timesheetLiteTheme.cycle");
+        SetThemeLabel(state.Preference, state.Effective);
+    }
+
+    private void SetThemeLabel(string preference, string effective)
+    {
+        themeLabel = preference switch
+        {
+            "dark" => "Dark",
+            "light" => "Light",
+            _ => $"Auto ({ToTitleCase(effective)})"
+        };
+
+        themeIcon = effective == "dark" ? "dark_mode" : "light_mode";
+    }
+
+    private static string ToTitleCase(string value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? "Light"
+            : char.ToUpperInvariant(value[0]) + value[1..];
+    }
+
+    private sealed record ThemeState(string Preference, string Effective);
+}

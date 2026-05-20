@@ -5,7 +5,40 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
+    <script>
+        (() => {
+            const key = "timesheetlite.theme";
+            const preference = localStorage.getItem(key) || "auto";
+            const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+            const effective = preference === "auto" ? (prefersDark ? "dark" : "light") : preference;
+
+            document.documentElement.dataset.themePreference = preference;
+            document.documentElement.dataset.theme = effective;
+            document.documentElement.style.colorScheme = effective;
+
+            const applyDarkSheet = () => {
+                const darkSheet = document.getElementById("radzen-dark-theme");
+
+                if (!darkSheet) {
+                    return;
+                }
+
+                darkSheet.media = preference === "dark"
+                    ? "all"
+                    : preference === "light"
+                        ? "not all"
+                        : "(prefers-color-scheme: dark)";
+            };
+
+            if (document.readyState === "loading") {
+                document.addEventListener("DOMContentLoaded", applyDarkSheet, { once: true });
+            } else {
+                applyDarkSheet();
+            }
+        })();
+    </script>
     <link rel="stylesheet" href="_content/Radzen.Blazor/css/standard-base.css" />
+    <link id="radzen-dark-theme" rel="stylesheet" href="_content/Radzen.Blazor/css/standard-dark-base.css" media="(prefers-color-scheme: dark)" />
     <link rel="stylesheet" href="app.css" />
     <HeadOutlet @rendermode="RenderMode.InteractiveServer" />
 </head>
@@ -14,6 +47,7 @@
     <Routes @rendermode="RenderMode.InteractiveServer" />
     <script src="_framework/blazor.web.js"></script>
     <script src="_content/Radzen.Blazor/Radzen.Blazor.js"></script>
+    <script src="theme.js"></script>
 </body>
 
 </html>

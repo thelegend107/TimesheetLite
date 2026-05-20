@@ -17,3 +17,7 @@
     margin: 0 auto;
     padding: 1.5rem;
 }
+
+.theme-toggle {
+    min-width: 7.75rem;
+}
