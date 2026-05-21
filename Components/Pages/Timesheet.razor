@@ -230,20 +230,20 @@
 
                 <RadzenDataGridColumn TItem="TimeEntry" Property="Notes" Title="Notes">
                     <EditTemplate Context="entry">
-                        <RadzenTextBox @bind-Value="entry.Notes" Style="width: 100%;" />
+                        <RadzenTextArea Rows="5" @bind-Value="entry.Notes" Style="width: 100%;" />
                     </EditTemplate>
                 </RadzenDataGridColumn>
 
                 <RadzenDataGridColumn TItem="TimeEntry" Title="" Width="150px" Sortable="false">
                     <Template Context="entry">
-                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.25rem">
+                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.25rem" JustifyContent="JustifyContent.Center">
                             <RadzenButton Icon="edit" Size="ButtonSize.Small" Click="@(() => EditEntry(entry))" />
                             <RadzenButton Icon="delete" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Danger" Click="@(() => DeleteEntry(entry))" />
                         </RadzenStack>
                     </Template>
 
                     <EditTemplate Context="entry">
-                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.25rem">
+                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.25rem" JustifyContent="JustifyContent.Center">
                             <RadzenButton Icon="save" Size="ButtonSize.Small" Click="@(() => SaveEntry(entry))" />
                             <RadzenButton Icon="close" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Secondary" Click="@(() => CancelEdit(entry))" />
                         </RadzenStack>
