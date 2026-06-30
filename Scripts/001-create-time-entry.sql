@@ -1,5 +1,16 @@
-IF OBJECT_ID(N'[dbo].[vTimeEntryWeeklySummary]', N'V') IS NOT NULL
-    DROP VIEW [dbo].[vTimeEntryWeeklySummary];
+IF DB_ID(N'Timesheet') IS NULL
+BEGIN
+    CREATE DATABASE [Timesheet];
+END;
+GO
+
+USE [Timesheet];
+GO
+
+SET ANSI_NULLS ON;
+GO
+
+SET QUOTED_IDENTIFIER ON;
 GO
 
 IF OBJECT_ID(N'[dbo].[TimeEntry]', N'U') IS NULL
@@ -19,6 +30,41 @@ BEGIN
 
         CONSTRAINT [CK_TimeEntry_Hours] CHECK ([Hours] > 0 AND [Hours] <= 24)
     );
+END;
+GO
+
+IF COL_LENGTH(N'[dbo].[TimeEntry]', N'Project') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[TimeEntry]
+    ADD [Project] NVARCHAR(100) NULL;
+END;
+GO
+
+IF COL_LENGTH(N'[dbo].[TimeEntry]', N'Project') IS NOT NULL
+BEGIN
+    UPDATE [dbo].[TimeEntry]
+    SET [Project] = N'Unassigned'
+    WHERE [Project] IS NULL;
+
+    IF EXISTS
+    (
+        SELECT 1
+        FROM [sys].[columns]
+        WHERE [object_id] = OBJECT_ID(N'[dbo].[TimeEntry]')
+          AND [name] = N'Project'
+          AND [is_nullable] = 1
+    )
+    BEGIN
+        ALTER TABLE [dbo].[TimeEntry]
+        ALTER COLUMN [Project] NVARCHAR(100) NOT NULL;
+    END;
+END;
+GO
+
+IF COL_LENGTH(N'[dbo].[TimeEntry]', N'Task') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[TimeEntry]
+    ADD [Task] NVARCHAR(100) NULL;
 END;
 GO
 
@@ -57,6 +103,79 @@ BEGIN
 END;
 GO
 
+IF COL_LENGTH(N'[dbo].[TimeEntry]', N'Notes') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[TimeEntry]
+    ADD [Notes] NVARCHAR(1000) NULL;
+END;
+GO
+
+IF COL_LENGTH(N'[dbo].[TimeEntry]', N'CreatedDate') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[TimeEntry]
+    ADD [CreatedDate] DATETIMEOFFSET NOT NULL
+        CONSTRAINT [DF_TimeEntry_CreatedDate] DEFAULT SYSDATETIMEOFFSET();
+END;
+GO
+
+IF COL_LENGTH(N'[dbo].[TimeEntry]', N'UpdatedDate') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[TimeEntry]
+    ADD [UpdatedDate] DATETIMEOFFSET NOT NULL
+        CONSTRAINT [DF_TimeEntry_UpdatedDate] DEFAULT SYSDATETIMEOFFSET();
+END;
+GO
+
+IF COL_LENGTH(N'[dbo].[TimeEntry]', N'CreatedDate') IS NOT NULL
+   AND NOT EXISTS
+   (
+       SELECT 1
+       FROM [sys].[default_constraints] AS [dc]
+       INNER JOIN [sys].[columns] AS [c]
+           ON [c].[object_id] = [dc].[parent_object_id]
+          AND [c].[column_id] = [dc].[parent_column_id]
+       WHERE [dc].[parent_object_id] = OBJECT_ID(N'[dbo].[TimeEntry]')
+         AND [c].[name] = N'CreatedDate'
+   )
+BEGIN
+    ALTER TABLE [dbo].[TimeEntry]
+    ADD CONSTRAINT [DF_TimeEntry_CreatedDate]
+    DEFAULT SYSDATETIMEOFFSET() FOR [CreatedDate];
+END;
+GO
+
+IF COL_LENGTH(N'[dbo].[TimeEntry]', N'UpdatedDate') IS NOT NULL
+   AND NOT EXISTS
+   (
+       SELECT 1
+       FROM [sys].[default_constraints] AS [dc]
+       INNER JOIN [sys].[columns] AS [c]
+           ON [c].[object_id] = [dc].[parent_object_id]
+          AND [c].[column_id] = [dc].[parent_column_id]
+       WHERE [dc].[parent_object_id] = OBJECT_ID(N'[dbo].[TimeEntry]')
+         AND [c].[name] = N'UpdatedDate'
+   )
+BEGIN
+    ALTER TABLE [dbo].[TimeEntry]
+    ADD CONSTRAINT [DF_TimeEntry_UpdatedDate]
+    DEFAULT SYSDATETIMEOFFSET() FOR [UpdatedDate];
+END;
+GO
+
+IF NOT EXISTS
+(
+    SELECT 1
+    FROM [sys].[check_constraints]
+    WHERE [name] = N'CK_TimeEntry_Hours'
+      AND [parent_object_id] = OBJECT_ID(N'[dbo].[TimeEntry]')
+)
+BEGIN
+    ALTER TABLE [dbo].[TimeEntry] WITH CHECK
+    ADD CONSTRAINT [CK_TimeEntry_Hours]
+    CHECK ([Hours] > 0 AND [Hours] <= 24);
+END;
+GO
+
 IF NOT EXISTS
 (
     SELECT 1
@@ -83,7 +202,7 @@ BEGIN
 END;
 GO
 
-CREATE VIEW [dbo].[vTimeEntryWeeklySummary]
+CREATE OR ALTER VIEW [dbo].[vTimeEntryWeeklySummary]
 AS
 SELECT
     CAST(DATEADD(DAY, -DATEDIFF(DAY, 0, [WorkDate]) % 7, [WorkDate]) AS DATE) AS [WeekStart],
