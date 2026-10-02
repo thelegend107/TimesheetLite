@@ -7,3 +7,12 @@ obj/
 *.suo
 certs/
 .env
+client/node_modules
+client/dist
+tests
+.impeccable
+.playwright-cli
+**/bin
+**/obj
+wwwroot/*
+!wwwroot/.gitkeep

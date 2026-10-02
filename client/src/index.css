@@ -1,0 +1,75 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+
+html {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --accent: oklch(0.56 0.205 257);
+  --accent-hover: color-mix(in oklab, var(--accent) 88%, black);
+}
+
+html:not(.dark):not([data-theme="dark"]) {
+  --muted: oklch(0.51 0.0138 285.94);
+  --danger: oklch(0.55 0.22 26);
+  --danger-hover: color-mix(in oklab, var(--danger) 90%, black);
+}
+
+html:is(.dark, [data-theme="dark"]) {
+  --danger: oklch(0.68 0.19 24.63);
+  --danger-foreground: oklch(0.2103 0.0059 285.89);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.button {
+  transition:
+    transform 160ms var(--ease-out),
+    background-color 100ms var(--ease-out),
+    box-shadow 100ms var(--ease-out);
+}
+
+@keyframes entry-added {
+  from {
+    background-color: var(--accent-soft-hover);
+  }
+
+  to {
+    background-color: transparent;
+  }
+}
+
+.entry-added > * {
+  animation: entry-added 1200ms var(--ease-out) both;
+}
+
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--muted) 45%, transparent) transparent;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    min-height: 100dvh;
+  }
+
+  ::selection {
+    background: color-mix(in oklch, var(--accent) 28%, transparent);
+  }
+
+  input,
+  textarea {
+    caret-color: var(--accent);
+  }
+}

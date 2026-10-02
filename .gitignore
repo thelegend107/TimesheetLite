@@ -402,3 +402,9 @@ FodyWeavers.xsd
 *.pfx
 .env
 certs/
+client/dist/
+client/*.tsbuildinfo
+wwwroot/*
+!wwwroot/.gitkeep
+.impeccable/review/
+.playwright-cli/
