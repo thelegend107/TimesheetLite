@@ -33,7 +33,7 @@ public sealed class ClockifyClient(HttpClient http, IClockifyCredentials credent
         {
             var batch = await GetAsync<List<ProjectDto>>($"workspaces/{Uri.EscapeDataString(workspaceId)}/projects?archived=false&page-size={ProjectPageSize}&page={page}", null, cancellationToken);
 
-            projects.AddRange(batch.Select(x => new ClockifyProject(x.Id, x.Name ?? x.Id, x.Archived, x.ClientName ?? "")));
+            projects.AddRange(batch.Select(x => new ClockifyProject(x.Id, x.Name ?? x.Id, x.Archived, x.ClientName ?? "", x.Billable)));
 
             if (batch.Count < ProjectPageSize)
             {
@@ -179,7 +179,7 @@ public sealed class ClockifyClient(HttpClient http, IClockifyCredentials credent
         };
     }
 
-    private static object ToBody(ClockifyEntryPayload payload) => new { start = Format(payload.StartUtc), end = Format(payload.EndUtc), description = payload.Description, projectId = payload.ProjectId };
+    private static object ToBody(ClockifyEntryPayload payload) => new { start = Format(payload.StartUtc), end = Format(payload.EndUtc), description = payload.Description, projectId = payload.ProjectId, billable = payload.Billable };
 
     private static string Format(DateTime utc) => utc.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
 
@@ -197,5 +197,5 @@ public sealed class ClockifyClient(HttpClient http, IClockifyCredentials credent
 
     private sealed record TimeEntryDto(string Id, string? Description, string? ProjectId, TimeIntervalDto? TimeInterval);
 
-    private sealed record ProjectDto(string Id, string? Name, bool Archived, string? ClientName);
+    private sealed record ProjectDto(string Id, string? Name, bool Archived, string? ClientName, bool Billable);
 }

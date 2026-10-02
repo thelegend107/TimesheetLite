@@ -142,12 +142,12 @@ public sealed class ClockifySyncServiceTests : IDisposable
         Assert.Empty(client.Entries);
     }
 
-    private static ClockifyRuleRequest Rule(string project, string phrase, string projectId) => new() { Project = project, Phrase = phrase, ClockifyProjectId = projectId };
+    private static ClockifyRuleRequest Rule(string project, string phrase, string projectId, bool? billable = null) => new() { Project = project, Phrase = phrase, ClockifyProjectId = projectId, Billable = billable };
 
     private void UseNorthwindProjects()
     {
         client.Projects.Clear();
-        client.Projects.Add(new ClockifyProject("p-dev", "Software Development", false, "Contoso Technologies"));
+        client.Projects.Add(new ClockifyProject("p-dev", "Software Development", false, "Contoso Technologies", true));
         client.Projects.Add(new ClockifyProject("p-meet", "Meetings", false, "Contoso Technologies"));
         client.Projects.Add(new ClockifyProject("p-admin", "Administrative", false, "Contoso Technologies"));
     }
@@ -278,6 +278,128 @@ public sealed class ClockifySyncServiceTests : IDisposable
         var status = await service.GetStatusAsync(CancellationToken.None);
 
         Assert.Equal([("Contoso", "admin", "p-admin"), ("Contoso", "standup", "p-meet")], status.Rules.Select(x => (x.Project, x.Phrase, x.ClockifyProjectId)));
+    }
+
+    [Fact]
+    public async Task An_entry_is_pushed_with_its_projects_billable_default()
+    {
+        client.Projects.Clear();
+        client.Projects.Add(new ClockifyProject("p-contoso", "Contoso", false, "", false));
+        client.Projects.Add(new ClockifyProject("p-northwind", "Northwind", false, "", true));
+        AddEntry(project: "Contoso", start: "08:00", end: "09:00");
+        AddEntry(project: "Northwind", start: "09:00", end: "10:00");
+
+        var preview = await SyncAsync(apply: false);
+
+        Assert.Equal([false, true], preview.Items.Select(x => x.Billable));
+        Assert.Empty(client.Entries);
+
+        await SyncAsync(apply: true);
+
+        Assert.Equal([false, true], client.Entries.Values.OrderBy(x => x.StartUtc).Select(x => x.Billable));
+    }
+
+    [Fact]
+    public async Task A_task_rule_takes_the_billable_default_of_the_project_it_picks()
+    {
+        UseNorthwindProjects();
+        AddEntry(task: "Coding", start: "08:00", end: "09:00");
+        AddEntry(task: "Standup", start: "09:00", end: "09:30");
+
+        await SyncAsync(apply: true, mappings: new Dictionary<string, string> { ["Contoso"] = "p-dev" }, rules: [Rule("Contoso", "standup", "p-meet")]);
+
+        Assert.Equal([("p-dev", true), ("p-meet", false)], client.Entries.Values.OrderBy(x => x.StartUtc).Select(x => (x.ProjectId, x.Billable)));
+    }
+
+    [Fact]
+    public async Task A_rule_can_override_the_billable_default_either_way()
+    {
+        UseNorthwindProjects();
+        AddEntry(task: "Coding", start: "08:00", end: "09:00");
+        AddEntry(task: "Internal coding", start: "09:00", end: "10:00");
+        AddEntry(task: "Standup", start: "10:00", end: "10:30");
+        AddEntry(task: "Retro", start: "10:30", end: "11:00");
+
+        var rules = new[] { Rule("Contoso", "internal", "p-dev", false), Rule("Contoso", "standup", "p-meet", true), Rule("Contoso", "retro", "p-meet") };
+        var preview = await SyncAsync(apply: false, mappings: new Dictionary<string, string> { ["Contoso"] = "p-dev" }, rules: rules);
+
+        Assert.Equal([true, false, true, false], preview.Items.Select(x => x.Billable));
+
+        await SyncAsync(apply: true, mappings: new Dictionary<string, string> { ["Contoso"] = "p-dev" }, rules: rules);
+
+        Assert.Equal([true, false, true, false], client.Entries.Values.OrderBy(x => x.StartUtc).Select(x => x.Billable));
+    }
+
+    [Fact]
+    public async Task Changing_only_a_rules_billable_override_updates_the_entries_already_pushed_and_is_remembered()
+    {
+        UseNorthwindProjects();
+        AddEntry(task: "Standup", start: "08:00", end: "09:00");
+        await SyncAsync(apply: true, rules: [Rule("Contoso", "standup", "p-meet")]);
+        Assert.False(client.Entries.Values.Single().Billable);
+
+        var preview = await SyncAsync(apply: false, rules: [Rule("Contoso", "standup", "p-meet", true)]);
+        await SyncAsync(apply: true, rules: [Rule("Contoso", "standup", "p-meet", true)]);
+
+        Assert.Equal(1, preview.Summary.Update);
+        Assert.True(client.Entries.Values.Single().Billable);
+        Assert.True(Assert.Single(db.ClockifyTaskRules).Billable);
+
+        var reused = await SyncAsync(apply: false);
+
+        Assert.Equal((1, true), (reused.Summary.Unchanged, db.ClockifyTaskRules.Single().Billable));
+    }
+
+    [Fact]
+    public async Task Status_lists_the_saved_rules_with_their_billable_override()
+    {
+        UseNorthwindProjects();
+        AddEntry();
+        db.ClockifyTaskRules.AddRange(new ClockifyTaskRule { Project = "Contoso", Phrase = "standup", ClockifyProjectId = "p-meet", Billable = false }, new ClockifyTaskRule { Project = "Contoso", Phrase = "admin", ClockifyProjectId = "p-admin" });
+        db.SaveChanges();
+
+        var status = await service.GetStatusAsync(CancellationToken.None);
+
+        Assert.Equal([("admin", (bool?)null), ("standup", false)], status.Rules.Select(x => (x.Phrase, x.Billable)));
+    }
+
+    [Fact]
+    public async Task A_task_rule_table_without_the_billable_column_reports_the_schema_as_missing()
+    {
+        await db.Database.ExecuteSqlRawAsync("DROP TABLE ClockifyTaskRule");
+        await db.Database.ExecuteSqlRawAsync("CREATE TABLE ClockifyTaskRule (Project TEXT NOT NULL, Phrase TEXT NOT NULL, ClockifyProjectId TEXT NOT NULL, PRIMARY KEY (Project, Phrase))");
+
+        Assert.Equal(ClockifyIssue.SchemaMissing, (await service.GetStatusAsync(CancellationToken.None)).Issue);
+    }
+
+    [Fact]
+    public async Task Changing_a_projects_billable_default_updates_the_entries_already_pushed()
+    {
+        AddEntry();
+        await SyncAsync(apply: true);
+        client.Projects[0] = new ClockifyProject("p-contoso", "Contoso", false, "", true);
+
+        var preview = await SyncAsync(apply: false);
+        await SyncAsync(apply: true);
+
+        Assert.Equal(1, preview.Summary.Update);
+        Assert.True(client.Entries.Values.Single().Billable);
+    }
+
+    [Fact]
+    public async Task A_linked_entry_keeps_the_billable_flag_it_has_in_Clockify()
+    {
+        AddEntry(start: "08:00", end: "10:45");
+        client.Projects[0] = new ClockifyProject("p-contoso", "Contoso", false, "", true);
+        client.Entries["manual-1"] = Remote("13:00", "15:45");
+
+        var preview = await SyncAsync(apply: false);
+
+        Assert.Null(Assert.Single(preview.Items).Billable);
+
+        await SyncAsync(apply: true);
+
+        Assert.False(client.Entries["manual-1"].Billable);
     }
 
     [Fact]

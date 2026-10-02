@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useClockifyPlan, useClockifyPush, useClockifyStatus, useDisconnectClockify } from "../api/queries";
 import type { ClockifyAccount, ClockifyMapping, ClockifyStatus, ClockifySyncItem, ClockifySyncResult } from "../api/types";
-import { actionChip, applyCount, applyLabel, buildPlanRequest, clientNames, destinationLabel, draftsFromRules, dropRulesOutsideClient, effectiveMappings, endsNextDay, entryDetail, itemDateLabel, mappingValue, orderItems, orderProjects, outcomeChip, planNote, planSummary, pushToast, rangeLabel, readIncludeNotes, resultNote, resultSummary, ruleRequests, timeRangeLabel, writeIncludeNotes } from "../lib/clockifyPlan";
+import { actionChip, applyCount, applyLabel, buildPlanRequest, clientNames, billableLabel, destinationLabel, draftsFromRules, dropRulesOutsideClient, effectiveMappings, endsNextDay, entryDetail, itemDateLabel, mappingValue, orderItems, orderProjects, outcomeChip, planNote, planSummary, pushToast, rangeLabel, readIncludeNotes, resultNote, resultSummary, ruleRequests, timeRangeLabel, writeIncludeNotes } from "../lib/clockifyPlan";
 import type { ChipSpec, ClockifyScope, RuleDraft } from "../lib/clockifyPlan";
 import { ClockifyConnectForm } from "./ClockifyConnectForm";
 import { ProjectRouting } from "./ProjectRouting";
@@ -242,7 +242,7 @@ function ClockifyReady({ status, account, selected, onBusyChange }: ReadyProps) 
 
   const addRule = (project: string) => {
     draftCount.current += 1;
-    setDrafts((current) => [...current, { key: `new-${draftCount.current}`, project, phrase: "", clockifyProjectId: "" }]);
+    setDrafts((current) => [...current, { key: `new-${draftCount.current}`, project, phrase: "", clockifyProjectId: "", billable: null }]);
   };
 
   const changeRule = (key: string, patch: RulePatch) => {
@@ -456,6 +456,7 @@ function ChangesTable({ items, mode }: ChangesTableProps) {
                     <span className="block max-w-44 truncate" title={destinationLabel(item)}>
                       {destinationLabel(item)}
                     </span>
+                    {billableLabel(item) ? <span className="block text-xs text-muted">{billableLabel(item)}</span> : null}
                   </Table.Cell>
                   <Table.Cell className={`${PAD} min-w-44 text-muted`}>{mode === "plan" ? planNote(item) : resultNote(item)}</Table.Cell>
                 </Table.Row>

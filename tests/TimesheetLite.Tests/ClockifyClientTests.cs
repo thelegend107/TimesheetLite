@@ -118,6 +118,28 @@ public class ClockifyClientTests
     }
 
     [Fact]
+    public async Task GetProjects_reads_each_projects_billable_default()
+    {
+        var (client, _) = Create(_ => Json("[{\"id\":\"p1\",\"name\":\"Software Development\",\"archived\":false,\"billable\":true},{\"id\":\"p2\",\"name\":\"Meetings\",\"archived\":false,\"billable\":false},{\"id\":\"p3\",\"name\":\"Support\",\"archived\":false}]"));
+
+        var projects = await client.GetProjectsAsync("w1", CancellationToken.None);
+
+        Assert.Equal([true, false, false], projects.Select(x => x.Billable));
+    }
+
+    [Fact]
+    public async Task Create_and_update_send_billable_explicitly_because_Clockify_defaults_it_to_false()
+    {
+        var (client, handler) = Create(_ => Json("{\"id\":\"r1\"}"));
+        var billable = Payload() with { Billable = true };
+
+        await client.CreateTimeEntryAsync("w1", billable, CancellationToken.None);
+        await client.UpdateTimeEntryAsync("w1", "r1", billable, CancellationToken.None);
+
+        Assert.All(handler.Requests, x => Assert.EndsWith("\"billable\":true}", x.Body));
+    }
+
+    [Fact]
     public async Task CreateTimeEntry_posts_utc_timestamps_with_the_z_suffix_and_returns_the_id()
     {
         var (client, handler) = Create(_ => Json("{\"id\":\"remote-9\"}", HttpStatusCode.Created));
@@ -128,7 +150,7 @@ public class ClockifyClientTests
         Assert.Equal("remote-9", id);
         Assert.Equal(HttpMethod.Post, request.Method);
         Assert.Equal("/api/v1/workspaces/w1/time-entries", request.PathAndQuery);
-        Assert.Equal("{\"start\":\"2026-10-02T13:00:00Z\",\"end\":\"2026-10-02T15:45:00Z\",\"description\":\"Standup \\u0022daily\\u0022\",\"projectId\":\"p1\"}", request.Body);
+        Assert.Equal("{\"start\":\"2026-10-02T13:00:00Z\",\"end\":\"2026-10-02T15:45:00Z\",\"description\":\"Standup \\u0022daily\\u0022\",\"projectId\":\"p1\",\"billable\":false}", request.Body);
     }
 
     [Fact]

@@ -18,6 +18,7 @@
 - CSV export of a date range, optionally for one project.
 - Clockify push with a preview of exactly what will be created, changed or removed.
 - A local project maps to a Clockify client, and the Clockify project under it can be chosen per project or by task wording (for example "standup" goes to Meetings).
+- Entries are pushed with the Clockify project's billable default, because Clockify treats a missing value as not billable. A task rule can override it as Billable or Not billable.
 - Entries already in Clockify with the same start and end are linked instead of duplicated.
 - Light and dark themes.
 
@@ -80,7 +81,7 @@ Production build without Docker:
 
 - The app never creates or migrates the database. Run the scripts yourself against SQL Server.
 - `Scripts/001-create-time-entry.sql` is required. It creates the `Timesheet` database if it is missing, `dbo.TimeEntry`, its indexes and the `dbo.vTimeEntryWeeklySummary` view. It is safe to run again. The app does not read the view; it exists for ad hoc queries.
-- `Scripts/002-clockify-sync.sql` is optional and only needed for the Clockify push. It creates `dbo.ClockifyEntryLink` (which local entry became which Clockify entry), `dbo.ClockifyProjectMap` (remembered project mappings) and `dbo.ClockifyTaskRule` (remembered task wording rules). It is safe to run again, so run it again after updating to create any table that is missing. Without it, Clockify reports that the schema is missing and refuses to sync; everything else works.
+- `Scripts/002-clockify-sync.sql` is optional and only needed for the Clockify push. It creates `dbo.ClockifyEntryLink` (which local entry became which Clockify entry), `dbo.ClockifyProjectMap` (remembered project mappings) and `dbo.ClockifyTaskRule` (remembered task wording rules and their billable choice). It is safe to run again, so run it again after updating to create any table that is missing. Without it, Clockify reports that the schema is missing and refuses to sync; everything else works.
 - Entry limits: project and task up to 100 characters, notes up to 1000 characters, dates between the years 2000 and 2100, start and end must differ.
 
 ## Docker deployment

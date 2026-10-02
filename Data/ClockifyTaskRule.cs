@@ -7,4 +7,6 @@ public class ClockifyTaskRule
     public string Phrase { get; set; } = "";
 
     public string ClockifyProjectId { get; set; } = "";
+
+    public bool? Billable { get; set; }
 }
