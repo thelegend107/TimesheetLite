@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ClockifyMapping, ClockifyProject, ClockifySyncAction, ClockifySyncItem, ClockifySyncOutcome, ClockifySyncResult, ClockifySyncSummary } from "../api/types";
-import { actionChip, applyCount, applyLabel, buildPlanRequest, clientFromKey, clientKey, clientLabel, clientNames, destinationLabel, draftsFromRules, draftsOf, dropRulesOutsideClient, effectiveClient, effectiveMappings, endsNextDay, entryDetail, INCLUDE_NOTES_KEY, itemDateLabel, mappingNote, mappingValue, orderItems, orderProjects, outcomeChip, planNote, planSummary, projectMatches, projectOptionLabel, projectsOfClient, pushCount, pushLabel, pushToast, rangeLabel, readIncludeNotes, resultNote, resultSummary, ruleRequests, scopeRange, suggestClient, timeRangeLabel, writeIncludeNotes } from "./clockifyPlan";
+import { actionChip, applyCount, applyLabel, BILLABLE_OPTIONS, billableFromKey, billableKey, buildPlanRequest, clientFromKey, clientKey, clientLabel, billableLabel, clientNames, destinationLabel, draftsFromRules, draftsOf, dropRulesOutsideClient, effectiveClient, effectiveMappings, endsNextDay, entryDetail, INCLUDE_NOTES_KEY, itemDateLabel, mappingNote, mappingValue, orderItems, orderProjects, outcomeChip, planNote, planSummary, projectMatches, projectOptionLabel, projectsOfClient, pushCount, pushLabel, pushToast, rangeLabel, readIncludeNotes, resultNote, resultSummary, ruleRequests, scopeRange, suggestClient, timeRangeLabel, writeIncludeNotes } from "./clockifyPlan";
 import { parseIso } from "./dates";
 
 const summary = (partial: Partial<ClockifySyncSummary> = {}): ClockifySyncSummary => ({ create: 0, update: 0, delete: 0, link: 0, unchanged: 0, blocked: 0, failed: 0, ...partial });
@@ -16,6 +16,7 @@ const item = (partial: Partial<ClockifySyncItem> = {}): ClockifySyncItem => ({
   outcome: "Planned",
   message: null,
   destination: null,
+  billable: null,
   ...partial,
 });
 
@@ -57,7 +58,7 @@ describe("range of a scope", () => {
   });
 
   it("builds a preview request with the chosen options", () => {
-    const rule = { project: "Alpha", phrase: "standup", clockifyProjectId: "p2" };
+    const rule = { project: "Alpha", phrase: "standup", clockifyProjectId: "p2", billable: null };
 
     expect(buildPlanRequest("week", parseIso("2026-10-02"), true, { Alpha: "p1" }, [rule])).toEqual({ from: "2026-09-28", to: "2026-10-04", includeNotes: true, apply: false, mappings: { Alpha: "p1" }, rules: [rule] });
     expect(buildPlanRequest("day", parseIso("2026-10-02"), false, {}, [])).toEqual({ from: "2026-10-02", to: "2026-10-02", includeNotes: false, apply: false, mappings: {}, rules: [] });
@@ -143,26 +144,26 @@ describe("Clockify clients", () => {
 describe("task rules", () => {
   const projects = [project("1", "Software Development", "Contoso Technologies"), project("2", "Meetings", "Contoso Technologies"), project("3", "Meetings", "Northwind")];
   const saved = [
-    { project: "Contoso", phrase: "standup", clockifyProjectId: "2" },
-    { project: "Northwind", phrase: "call", clockifyProjectId: "3" },
+    { project: "Contoso", phrase: "standup", clockifyProjectId: "2", billable: false },
+    { project: "Northwind", phrase: "call", clockifyProjectId: "3", billable: null },
   ];
 
   it("turns saved rules into drafts with stable keys", () => {
     expect(draftsFromRules(saved)).toEqual([
-      { key: "saved-0", project: "Contoso", phrase: "standup", clockifyProjectId: "2" },
-      { key: "saved-1", project: "Northwind", phrase: "call", clockifyProjectId: "3" },
+      { key: "saved-0", project: "Contoso", phrase: "standup", clockifyProjectId: "2", billable: false },
+      { key: "saved-1", project: "Northwind", phrase: "call", clockifyProjectId: "3", billable: null },
     ]);
   });
 
   it("sends only complete rules, with the wording trimmed", () => {
     const drafts = [
-      { key: "a", project: "Contoso", phrase: "  standup ", clockifyProjectId: "2" },
-      { key: "b", project: "Contoso", phrase: "", clockifyProjectId: "2" },
-      { key: "c", project: "Contoso", phrase: "coding", clockifyProjectId: "" },
-      { key: "d", project: "Contoso", phrase: "   ", clockifyProjectId: "1" },
+      { key: "a", project: "Contoso", phrase: "  standup ", clockifyProjectId: "2", billable: true },
+      { key: "b", project: "Contoso", phrase: "", clockifyProjectId: "2", billable: null },
+      { key: "c", project: "Contoso", phrase: "coding", clockifyProjectId: "", billable: null },
+      { key: "d", project: "Contoso", phrase: "   ", clockifyProjectId: "1", billable: null },
     ];
 
-    expect(ruleRequests(drafts)).toEqual([{ project: "Contoso", phrase: "standup", clockifyProjectId: "2" }]);
+    expect(ruleRequests(drafts)).toEqual([{ project: "Contoso", phrase: "standup", clockifyProjectId: "2", billable: true }]);
     expect(ruleRequests([])).toEqual([]);
   });
 
@@ -174,7 +175,7 @@ describe("task rules", () => {
   });
 
   it("clears the project of a rule that is outside a newly chosen client and keeps its wording", () => {
-    const drafts = draftsFromRules([...saved, { project: "Contoso", phrase: "admin", clockifyProjectId: "1" }]);
+    const drafts = draftsFromRules([...saved, { project: "Contoso", phrase: "admin", clockifyProjectId: "1", billable: null }]);
     const result = dropRulesOutsideClient(drafts, "Contoso", "Northwind", projects);
 
     expect(result.map((x) => [x.phrase, x.clockifyProjectId])).toEqual([
@@ -185,9 +186,30 @@ describe("task rules", () => {
     expect(dropRulesOutsideClient(drafts, "Contoso", "Contoso Technologies", projects)).toEqual(drafts);
   });
 
+  it("maps the billable choice to a menu key and back, with no choice meaning the project default", () => {
+    expect(billableKey(null)).toBe("default");
+    expect(billableKey(true)).toBe("billable");
+    expect(billableKey(false)).toBe("unbillable");
+    expect([null, true, false].map((value) => billableFromKey(billableKey(value)))).toEqual([null, true, false]);
+    expect(billableFromKey("something else")).toBeNull();
+    expect(BILLABLE_OPTIONS.map((option) => option.label)).toEqual(["Project default", "Billable", "Not billable"]);
+  });
+
+  it("keeps a rule's billable choice when its project is cleared and when its project changes", () => {
+    const drafts = draftsFromRules([{ project: "Contoso", phrase: "standup", clockifyProjectId: "2", billable: false }]);
+
+    expect(dropRulesOutsideClient(drafts, "Contoso", "Northwind", projects)[0]).toMatchObject({ clockifyProjectId: "", billable: false });
+  });
+
   it("says where an entry goes, or shows a dash", () => {
     expect(destinationLabel(item({ destination: "Meetings · Northwind" }))).toBe("Meetings · Northwind");
     expect(destinationLabel(item({ destination: null }))).toBe("–");
+  });
+
+  it("says whether an entry will be billable, and nothing when that is not being set", () => {
+    expect(billableLabel(item({ billable: true }))).toBe("Billable");
+    expect(billableLabel(item({ billable: false }))).toBe("Not billable");
+    expect(billableLabel(item({ billable: null }))).toBeNull();
   });
 });
 

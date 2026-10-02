@@ -1,11 +1,11 @@
 import { Plus, TrashBin } from "@gravity-ui/icons";
 import { Button, ComboBox, Input, ListBox, Select } from "@heroui/react";
 import type { ClockifyMapping, ClockifyProject } from "../api/types";
-import { clientFromKey, clientKey, clientLabel, draftsOf, effectiveClient, mappingNote, mappingValue, projectMatches, projectOptionLabel, projectsOfClient } from "../lib/clockifyPlan";
+import { BILLABLE_OPTIONS, billableFromKey, billableKey, clientFromKey, clientKey, clientLabel, draftsOf, effectiveClient, mappingNote, mappingValue, projectMatches, projectOptionLabel, projectsOfClient } from "../lib/clockifyPlan";
 import type { RuleDraft } from "../lib/clockifyPlan";
 import { ProjectLabel } from "./ProjectLabel";
 
-export type RulePatch = Partial<Pick<RuleDraft, "phrase" | "clockifyProjectId">>;
+export type RulePatch = Partial<Pick<RuleDraft, "phrase" | "clockifyProjectId" | "billable">>;
 
 type ProjectRoutingProps = {
   mapping: ClockifyMapping;
@@ -24,9 +24,11 @@ type ProjectRoutingProps = {
 
 type ProjectPickerProps = { label: string; value: string | null; options: ClockifyProject[]; showClient: boolean; placeholder: string; isDisabled: boolean; onChange: (projectId: string) => void };
 
+type BillablePickerProps = { label: string; value: boolean | null; isDisabled: boolean; onChange: (billable: boolean | null) => void };
+
 type PhraseInputProps = { label: string; value: string; isDisabled: boolean; autoFocus: boolean; onCommit: (phrase: string) => void };
 
-const HINT = "Entries whose task contains the wording go to that project. The longest wording wins, and everything else uses the project above.";
+const HINT = "Entries whose task contains the wording go to that project. The longest wording wins, and everything else uses the project above. Billable follows the Clockify project unless a rule sets it.";
 
 function ProjectPicker({ label, value, options, showClient, placeholder, isDisabled, onChange }: ProjectPickerProps) {
   return (
@@ -60,6 +62,37 @@ function ProjectPicker({ label, value, options, showClient, placeholder, isDisab
         </ListBox>
       </ComboBox.Popover>
     </ComboBox>
+  );
+}
+
+function BillablePicker({ label, value, isDisabled, onChange }: BillablePickerProps) {
+  return (
+    <Select
+      aria-label={label}
+      isDisabled={isDisabled}
+      value={billableKey(value)}
+      variant="secondary"
+      onChange={(key) => {
+        if (typeof key === "string") {
+          onChange(billableFromKey(key));
+        }
+      }}
+    >
+      <Select.Trigger>
+        <Select.Value />
+        <Select.Indicator />
+      </Select.Trigger>
+      <Select.Popover>
+        <ListBox>
+          {BILLABLE_OPTIONS.map((option) => (
+            <ListBox.Item key={option.key} id={option.key} textValue={option.label}>
+              {option.label}
+              <ListBox.ItemIndicator />
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </Select.Popover>
+    </Select>
   );
 }
 
@@ -132,6 +165,9 @@ export function ProjectRouting({ mapping, projects, clients, choices, clientChoi
             <div className="flex items-center gap-2">
               <div className="min-w-0 flex-1">
                 <ProjectPicker isDisabled={isDisabled} label={`Clockify project for tasks containing ${rule.phrase || "the wording"}`} options={options} placeholder="Choose a project" showClient={client === null} value={rule.clockifyProjectId === "" ? null : rule.clockifyProjectId} onChange={(projectId) => onChangeRule(rule.key, { clockifyProjectId: projectId })} />
+              </div>
+              <div className="w-36 shrink-0">
+                <BillablePicker isDisabled={isDisabled} label={`Billable for tasks containing ${rule.phrase || "the wording"}`} value={rule.billable} onChange={(billable) => onChangeRule(rule.key, { billable })} />
               </div>
               <Button isDisabled={isDisabled} isIconOnly aria-label="Remove task rule" size="sm" variant="tertiary" onPress={() => onRemoveRule(rule.key)}>
                 <TrashBin />

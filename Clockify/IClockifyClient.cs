@@ -4,9 +4,9 @@ public sealed record ClockifyUser(string Id, string Name, string Email, string A
 
 public sealed record ClockifyWorkspace(string Id, string Name);
 
-public sealed record ClockifyProject(string Id, string Name, bool Archived, string ClientName = "");
+public sealed record ClockifyProject(string Id, string Name, bool Archived, string ClientName = "", bool Billable = false);
 
-public sealed record ClockifyEntryPayload(DateTime StartUtc, DateTime EndUtc, string Description, string ProjectId);
+public sealed record ClockifyEntryPayload(DateTime StartUtc, DateTime EndUtc, string Description, string ProjectId, bool Billable = false);
 
 public sealed record ClockifyRemoteEntry(string Id, DateTime StartUtc, DateTime EndUtc, string Description, string? ProjectId);
 

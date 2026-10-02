@@ -48,7 +48,7 @@ public sealed record ClockifyProjectResponse(string Id, string Name, string Clie
 
 public sealed record ClockifyMappingResponse(string Project, string? ClockifyProjectId, ClockifyMappingSource Source);
 
-public sealed record ClockifyRuleResponse(string Project, string Phrase, string ClockifyProjectId);
+public sealed record ClockifyRuleResponse(string Project, string Phrase, string ClockifyProjectId, bool? Billable);
 
 public sealed record ClockifyStatusResponse(ClockifyIssue Issue, string? Message, ClockifyAccountResponse? Account, IReadOnlyList<ClockifyProjectResponse> Projects, IReadOnlyList<ClockifyMappingResponse> Mappings, IReadOnlyList<ClockifyRuleResponse> Rules, ClockifyConnectionSource Connection);
 
@@ -64,6 +64,8 @@ public sealed record ClockifyRuleRequest
     public required string Phrase { get; init; }
 
     public required string ClockifyProjectId { get; init; }
+
+    public bool? Billable { get; init; }
 }
 
 public sealed record ClockifySyncRequest
@@ -81,7 +83,7 @@ public sealed record ClockifySyncRequest
     public IReadOnlyList<ClockifyRuleRequest>? Rules { get; init; }
 }
 
-public sealed record ClockifySyncItemResponse(int? EntryId, DateOnly Date, TimeOnly? Start, TimeOnly? End, string Label, string Description, ClockifySyncAction Action, ClockifySyncOutcome Outcome, string? Message, string? Destination);
+public sealed record ClockifySyncItemResponse(int? EntryId, DateOnly Date, TimeOnly? Start, TimeOnly? End, string Label, string Description, ClockifySyncAction Action, ClockifySyncOutcome Outcome, string? Message, string? Destination, bool? Billable);
 
 public sealed record ClockifySyncSummaryResponse(int Create, int Update, int Delete, int Link, int Unchanged, int Blocked, int Failed);
 

@@ -54,7 +54,7 @@ public sealed class ClockifySyncService(TimesheetDbContext db, IClockifyClient c
             var projects = await client.GetProjectsAsync(workspaceId, cancellationToken);
             var localProjects = await db.TimeEntries.AsNoTracking().Select(x => x.Project).Distinct().OrderBy(x => x).ToListAsync(cancellationToken);
             var saved = await db.ClockifyProjectMaps.AsNoTracking().ToListAsync(cancellationToken);
-            var rules = await db.ClockifyTaskRules.AsNoTracking().OrderBy(x => x.Project).ThenBy(x => x.Phrase).Select(x => new ClockifyRuleResponse(x.Project, x.Phrase, x.ClockifyProjectId)).ToListAsync(cancellationToken);
+            var rules = await db.ClockifyTaskRules.AsNoTracking().OrderBy(x => x.Project).ThenBy(x => x.Phrase).Select(x => new ClockifyRuleResponse(x.Project, x.Phrase, x.ClockifyProjectId, x.Billable)).ToListAsync(cancellationToken);
             var resolved = ResolveMapping(localProjects, saved, null, projects);
             var workspaceName = workspaces.FirstOrDefault(x => x.Id == workspaceId)?.Name ?? workspaceId;
             var account = new ClockifyAccountResponse(user.Name, user.Email, workspaceId, workspaceName, zone.Id);
@@ -175,6 +175,7 @@ public sealed class ClockifySyncService(TimesheetDbContext db, IClockifyClient c
                 pool.Remove(twin);
                 item.Action = ClockifySyncAction.Link;
                 item.RemoteId = twin.Id;
+                item.Billable = null;
                 item.Message = twin.ProjectId == payload.ProjectId && twin.Description == payload.Description ? "Already in Clockify. It will be linked, not duplicated." : "Already in Clockify at this time with a different project or description. It will be linked and left as it is.";
             }
         }
@@ -325,11 +326,12 @@ public sealed class ClockifySyncService(TimesheetDbContext db, IClockifyClient c
 
             if (existing is null)
             {
-                db.ClockifyTaskRules.Add(new ClockifyTaskRule { Project = rule.Project, Phrase = rule.Phrase, ClockifyProjectId = rule.ClockifyProjectId });
+                db.ClockifyTaskRules.Add(new ClockifyTaskRule { Project = rule.Project, Phrase = rule.Phrase, ClockifyProjectId = rule.ClockifyProjectId, Billable = rule.Billable });
             }
-            else if (existing.ClockifyProjectId != rule.ClockifyProjectId)
+            else
             {
                 existing.ClockifyProjectId = rule.ClockifyProjectId;
+                existing.Billable = rule.Billable;
             }
         }
 
@@ -345,7 +347,7 @@ public sealed class ClockifySyncService(TimesheetDbContext db, IClockifyClient c
         {
             await db.ClockifyEntryLinks.AsNoTracking().AnyAsync(cancellationToken);
             await db.ClockifyProjectMaps.AsNoTracking().AnyAsync(cancellationToken);
-            await db.ClockifyTaskRules.AsNoTracking().AnyAsync(cancellationToken);
+            await db.ClockifyTaskRules.AsNoTracking().Select(x => x.Billable).FirstOrDefaultAsync(cancellationToken);
 
             return true;
         }
@@ -435,11 +437,11 @@ public sealed class ClockifySyncService(TimesheetDbContext db, IClockifyClient c
 
     private static List<ResolvedRule> ResolveRules(IReadOnlyList<ClockifyTaskRule> saved, IReadOnlyList<ClockifyRuleRequest>? requested)
     {
-        var source = requested is null ? saved.Select(x => (x.Project, x.Phrase, Id: x.ClockifyProjectId)) : requested.Select(x => ((x.Project ?? "").Trim(), (x.Phrase ?? "").Trim(), Id: (x.ClockifyProjectId ?? "").Trim()));
+        var source = requested is null ? saved.Select(x => (x.Project, x.Phrase, Id: x.ClockifyProjectId, x.Billable)) : requested.Select(x => ((x.Project ?? "").Trim(), (x.Phrase ?? "").Trim(), Id: (x.ClockifyProjectId ?? "").Trim(), x.Billable));
         var seen = new HashSet<(string, string)>();
         var rules = new List<ResolvedRule>();
 
-        foreach (var (project, phrase, id) in source)
+        foreach (var (project, phrase, id, billable) in source)
         {
             var key = Normalize(phrase);
 
@@ -448,7 +450,7 @@ public sealed class ClockifySyncService(TimesheetDbContext db, IClockifyClient c
                 continue;
             }
 
-            rules.Add(new ResolvedRule(project, phrase, key, id));
+            rules.Add(new ResolvedRule(project, phrase, key, id, billable));
         }
 
         return rules;
@@ -470,7 +472,7 @@ public sealed class ClockifySyncService(TimesheetDbContext db, IClockifyClient c
             return Blocked("Start and end times are required.");
         }
 
-        var (target, problem) = router.Route(entry);
+        var (target, billable, problem) = router.Route(entry);
 
         if (target is null)
         {
@@ -482,11 +484,11 @@ public sealed class ClockifySyncService(TimesheetDbContext db, IClockifyClient c
             return Blocked($"That time does not exist in {zone.Id} because of a daylight saving change.");
         }
 
-        var fingerprint = Fingerprint(target.Id, startUtc, endUtc, description);
+        var fingerprint = Fingerprint(target.Id, startUtc, endUtc, description, billable);
         var unchanged = link is not null && link.Fingerprint == fingerprint && link.WorkspaceId == workspaceId;
         var action = link is null ? ClockifySyncAction.Create : unchanged ? ClockifySyncAction.Unchanged : ClockifySyncAction.Update;
 
-        return new PlanItem { EntryId = entry.Id, Date = entry.WorkDate, Start = entry.StartTime, End = entry.EndTime, Label = label, Description = description, Action = action, Payload = new ClockifyEntryPayload(startUtc, endUtc, description, target.Id), Fingerprint = fingerprint, Link = link, Destination = DestinationLabel(target) };
+        return new PlanItem { EntryId = entry.Id, Date = entry.WorkDate, Start = entry.StartTime, End = entry.EndTime, Label = label, Description = description, Action = action, Payload = new ClockifyEntryPayload(startUtc, endUtc, description, target.Id, billable), Fingerprint = fingerprint, Link = link, Destination = DestinationLabel(target), Billable = billable };
     }
 
     private static string Describe(TimeEntry entry, bool includeNotes)
@@ -537,9 +539,9 @@ public sealed class ClockifySyncService(TimesheetDbContext db, IClockifyClient c
         return new DateTimeOffset(local, zone.GetAmbiguousTimeOffsets(local).Max()).UtcDateTime;
     }
 
-    private static string Fingerprint(string projectId, DateTime startUtc, DateTime endUtc, string description)
+    private static string Fingerprint(string projectId, DateTime startUtc, DateTime endUtc, string description, bool billable)
     {
-        var text = string.Create(CultureInfo.InvariantCulture, $"{projectId}|{startUtc:O}|{endUtc:O}|{description}");
+        var text = string.Create(CultureInfo.InvariantCulture, $"{projectId}|{startUtc:O}|{endUtc:O}|{description}|{billable}");
 
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text)))[..32];
     }
@@ -551,7 +553,7 @@ public sealed class ClockifySyncService(TimesheetDbContext db, IClockifyClient c
         return new ClockifySyncSummaryResponse(Count(ClockifySyncAction.Create), Count(ClockifySyncAction.Update), Count(ClockifySyncAction.Delete), Count(ClockifySyncAction.Link), Count(ClockifySyncAction.Unchanged), Count(ClockifySyncAction.Blocked), items.Count(x => x.Outcome == ClockifySyncOutcome.Failed));
     }
 
-    private static ClockifySyncItemResponse ToResponse(PlanItem item) => new(item.EntryId, item.Date, item.Start, item.End, item.Label, item.Description, item.Action, item.Outcome, item.Message, item.Destination);
+    private static ClockifySyncItemResponse ToResponse(PlanItem item) => new(item.EntryId, item.Date, item.Start, item.End, item.Label, item.Description, item.Action, item.Outcome, item.Message, item.Destination, item.Billable);
 
     private sealed class PlanItem
     {
@@ -582,23 +584,25 @@ public sealed class ClockifySyncService(TimesheetDbContext db, IClockifyClient c
         public string? RemoteId { get; set; }
 
         public string? Destination { get; init; }
+
+        public bool? Billable { get; set; }
     }
 
-    private sealed record ResolvedRule(string Project, string Phrase, string Key, string ClockifyProjectId);
+    private sealed record ResolvedRule(string Project, string Phrase, string Key, string ClockifyProjectId, bool? Billable);
 
     private sealed class Router(IReadOnlyDictionary<string, string> defaults, IReadOnlyList<ResolvedRule> rules, IReadOnlyDictionary<string, ClockifyProject> known)
     {
-        public (ClockifyProject? Project, string Problem) Route(TimeEntry entry)
+        public (ClockifyProject? Project, bool Billable, string Problem) Route(TimeEntry entry)
         {
             var task = Normalize(entry.Task);
             var rule = rules.Where(x => string.Equals(x.Project, entry.Project, StringComparison.OrdinalIgnoreCase) && task.Contains(x.Key, StringComparison.Ordinal)).MaxBy(x => x.Key.Length);
 
             if (rule is not null)
             {
-                return known.TryGetValue(rule.ClockifyProjectId, out var ruled) ? (ruled, "") : (null, $"The Clockify project chosen for \"{rule.Phrase}\" is no longer available.");
+                return known.TryGetValue(rule.ClockifyProjectId, out var ruled) ? (ruled, rule.Billable ?? ruled.Billable, "") : (null, false, $"The Clockify project chosen for \"{rule.Phrase}\" is no longer available.");
             }
 
-            return defaults.TryGetValue(entry.Project, out var id) && known.TryGetValue(id, out var project) ? (project, "") : (null, $"No Clockify project is mapped to \"{entry.Project}\".");
+            return defaults.TryGetValue(entry.Project, out var id) && known.TryGetValue(id, out var project) ? (project, project.Billable, "") : (null, false, $"No Clockify project is mapped to \"{entry.Project}\".");
         }
     }
 }

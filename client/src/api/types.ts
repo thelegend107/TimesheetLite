@@ -42,7 +42,7 @@ export type ClockifyAccount = { userName: string; email: string; workspaceId: st
 
 export type ClockifyProject = { id: string; name: string; clientName: string };
 
-export type ClockifyRule = { project: string; phrase: string; clockifyProjectId: string };
+export type ClockifyRule = { project: string; phrase: string; clockifyProjectId: string; billable: boolean | null };
 
 export type ClockifyMapping = { project: string; clockifyProjectId: string | null; source: ClockifyMappingSource };
 
@@ -76,6 +76,7 @@ export type ClockifySyncItem = {
   outcome: ClockifySyncOutcome;
   message: string | null;
   destination: string | null;
+  billable: boolean | null;
 };
 
 export type ClockifySyncSummary = { create: number; update: number; delete: number; link: number; unchanged: number; blocked: number; failed: number };

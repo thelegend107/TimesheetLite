@@ -14,7 +14,9 @@ export type PushToast = { kind: "success" | "danger"; title: string; description
 
 export type DateRange = { from: string; to: string };
 
-export type RuleDraft = { key: string; project: string; phrase: string; clockifyProjectId: string };
+export type RuleDraft = { key: string; project: string; phrase: string; clockifyProjectId: string; billable: boolean | null };
+
+export type BillableOption = { key: string; label: string };
 
 export const INCLUDE_NOTES_KEY = "timesheetlite.clockify.includeNotes";
 
@@ -170,7 +172,7 @@ export function draftsFromRules(rules: readonly ClockifyRule[]): RuleDraft[] {
 
 export function ruleRequests(drafts: readonly RuleDraft[]): ClockifyRule[] {
   return drafts
-    .map((draft) => ({ project: draft.project, phrase: draft.phrase.trim(), clockifyProjectId: draft.clockifyProjectId }))
+    .map((draft) => ({ project: draft.project, phrase: draft.phrase.trim(), clockifyProjectId: draft.clockifyProjectId, billable: draft.billable }))
     .filter((rule) => rule.phrase !== "" && rule.clockifyProjectId !== "");
 }
 
@@ -184,6 +186,24 @@ export function dropRulesOutsideClient(drafts: readonly RuleDraft[], project: st
 
 export function destinationLabel(item: ClockifySyncItem): string {
   return item.destination ?? NO_TIME;
+}
+
+export const BILLABLE_OPTIONS: readonly BillableOption[] = [
+  { key: "default", label: "Project default" },
+  { key: "billable", label: "Billable" },
+  { key: "unbillable", label: "Not billable" },
+];
+
+export function billableKey(billable: boolean | null): string {
+  return billable === null ? "default" : billable ? "billable" : "unbillable";
+}
+
+export function billableFromKey(key: string): boolean | null {
+  return key === "billable" ? true : key === "unbillable" ? false : null;
+}
+
+export function billableLabel(item: ClockifySyncItem): string | null {
+  return item.billable === null ? null : item.billable ? "Billable" : "Not billable";
 }
 
 export function pushCount(summary: ClockifySyncSummary): number {

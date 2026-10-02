@@ -50,8 +50,15 @@ BEGIN
         [Project] NVARCHAR(100) NOT NULL,
         [Phrase] NVARCHAR(100) NOT NULL,
         [ClockifyProjectId] NVARCHAR(40) NOT NULL,
+        [Billable] BIT NULL,
         CONSTRAINT [PK_ClockifyTaskRule] PRIMARY KEY CLUSTERED ([Project], [Phrase])
     );
+END;
+GO
+
+IF COL_LENGTH(N'[dbo].[ClockifyTaskRule]', N'Billable') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[ClockifyTaskRule] ADD [Billable] BIT NULL;
 END;
 GO
 
