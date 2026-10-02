@@ -31,7 +31,7 @@ public sealed class ClockifyClient(HttpClient http, IClockifyCredentials credent
         {
             var batch = await GetAsync<List<ProjectDto>>($"workspaces/{Uri.EscapeDataString(workspaceId)}/projects?archived=false&page-size={ProjectPageSize}&page={page}", null, cancellationToken);
 
-            projects.AddRange(batch.Select(x => new ClockifyProject(x.Id, x.Name ?? x.Id, x.Archived)));
+            projects.AddRange(batch.Select(x => new ClockifyProject(x.Id, x.Name ?? x.Id, x.Archived, x.ClientName ?? "")));
 
             if (batch.Count < ProjectPageSize)
             {
@@ -172,5 +172,5 @@ public sealed class ClockifyClient(HttpClient http, IClockifyCredentials credent
 
     private sealed record WorkspaceDto(string Id, string? Name);
 
-    private sealed record ProjectDto(string Id, string? Name, bool Archived);
+    private sealed record ProjectDto(string Id, string? Name, bool Archived, string? ClientName);
 }

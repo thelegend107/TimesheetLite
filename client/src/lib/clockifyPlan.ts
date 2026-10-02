@@ -1,5 +1,5 @@
 import type { CalendarDate } from "@internationalized/date";
-import type { ClockifyMapping, ClockifySyncAction, ClockifySyncItem, ClockifySyncOutcome, ClockifySyncRequest, ClockifySyncResult, ClockifySyncSummary } from "../api/types";
+import type { ClockifyMapping, ClockifyProject, ClockifySyncAction, ClockifySyncItem, ClockifySyncOutcome, ClockifySyncRequest, ClockifySyncResult, ClockifySyncSummary } from "../api/types";
 import { formatMonthDay, formatMonthDayYear, formatWeekdayShort, formatWeekRange, isoOf, tryParseIso, weekEndOf, weekStartOf } from "./dates";
 import { pluralize } from "./format";
 import { formatTime, fromWireTime } from "./time";
@@ -41,6 +41,23 @@ export function scopeRange(scope: ClockifyScope, selected: CalendarDate): DateRa
 
 export function rangeLabel(scope: ClockifyScope, selected: CalendarDate): string {
   return scope === "day" ? `${formatWeekdayShort(selected)}, ${formatMonthDayYear(selected)}` : formatWeekRange(weekStartOf(selected));
+}
+
+export function projectOptionLabel(project: ClockifyProject): string {
+  return project.clientName === "" ? project.name : `${project.name} · ${project.clientName}`;
+}
+
+export function orderProjects(projects: readonly ClockifyProject[]): ClockifyProject[] {
+  return [...projects].sort((a, b) => a.clientName.localeCompare(b.clientName) || a.name.localeCompare(b.name));
+}
+
+export function projectMatches(optionText: string, query: string): boolean {
+  const haystack = optionText.toLowerCase();
+
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .every((word) => haystack.includes(word));
 }
 
 export function mappingValue(mapping: ClockifyMapping, choices: Readonly<Record<string, string>>): string | null {

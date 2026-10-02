@@ -96,6 +96,16 @@ public class ClockifyClientTests
     }
 
     [Fact]
+    public async Task GetProjects_keeps_the_client_so_same_named_projects_stay_distinguishable()
+    {
+        var (client, _) = Create(_ => Json("[{\"id\":\"p1\",\"name\":\"Support\",\"archived\":false,\"clientName\":\"Northwind\"},{\"id\":\"p2\",\"name\":\"Support\",\"archived\":false,\"clientName\":null},{\"id\":\"p3\",\"name\":\"Support\",\"archived\":false}]"));
+
+        var projects = await client.GetProjectsAsync("w1", CancellationToken.None);
+
+        Assert.Equal(["Northwind", "", ""], projects.Select(x => x.ClientName));
+    }
+
+    [Fact]
     public async Task CreateTimeEntry_posts_utc_timestamps_with_the_z_suffix_and_returns_the_id()
     {
         var (client, handler) = Create(_ => Json("{\"id\":\"remote-9\"}", HttpStatusCode.Created));
