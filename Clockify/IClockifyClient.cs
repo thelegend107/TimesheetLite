@@ -8,6 +8,8 @@ public sealed record ClockifyProject(string Id, string Name, bool Archived, stri
 
 public sealed record ClockifyEntryPayload(DateTime StartUtc, DateTime EndUtc, string Description, string ProjectId);
 
+public sealed record ClockifyRemoteEntry(string Id, DateTime StartUtc, DateTime EndUtc, string Description, string? ProjectId);
+
 public interface IClockifyClient
 {
     Task<ClockifyUser> GetUserAsync(CancellationToken cancellationToken);
@@ -17,6 +19,8 @@ public interface IClockifyClient
     Task<IReadOnlyList<ClockifyWorkspace>> GetWorkspacesAsync(CancellationToken cancellationToken);
 
     Task<IReadOnlyList<ClockifyProject>> GetProjectsAsync(string workspaceId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<ClockifyRemoteEntry>> GetTimeEntriesAsync(string workspaceId, string userId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken);
 
     Task<string> CreateTimeEntryAsync(string workspaceId, ClockifyEntryPayload payload, CancellationToken cancellationToken);
 

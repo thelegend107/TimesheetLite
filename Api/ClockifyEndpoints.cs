@@ -8,6 +8,7 @@ namespace TimesheetLite.Api;
 public static class ClockifyEndpoints
 {
     private const int MaxRangeDays = 92;
+    private const int MaxRules = 200;
     private const int MaxApiKeyLength = 200;
 
     public static IEndpointRouteBuilder MapClockify(this IEndpointRouteBuilder app)
@@ -85,6 +86,11 @@ public static class ClockifyEndpoints
         if (request.To.DayNumber - request.From.DayNumber > MaxRangeDays)
         {
             return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["to"] = [$"Sync at most {MaxRangeDays} days at a time."] });
+        }
+
+        if (request.Rules is { Count: > MaxRules })
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["rules"] = [$"Send at most {MaxRules} task rules."] });
         }
 
         return TypedResults.Ok(await service.SyncAsync(request, cancellationToken));

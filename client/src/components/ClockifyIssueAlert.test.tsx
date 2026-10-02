@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ClockifyStatus } from "../api/types";
 import { IssueAlert } from "./ClockifyDialog";
 
-const status = (issue: ClockifyStatus["issue"], message: string | null, connection: ClockifyStatus["connection"] = "None"): ClockifyStatus => ({ issue, message, account: null, projects: [], mappings: [], connection });
+const status = (issue: ClockifyStatus["issue"], message: string | null, connection: ClockifyStatus["connection"] = "None"): ClockifyStatus => ({ issue, message, account: null, projects: [], mappings: [], rules: [], connection });
 
 const show = (value: ClockifyStatus) =>
   render(

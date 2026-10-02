@@ -10,6 +10,8 @@ public class TimesheetDbContext(DbContextOptions<TimesheetDbContext> options) : 
 
     public DbSet<ClockifyProjectMap> ClockifyProjectMaps => Set<ClockifyProjectMap>();
 
+    public DbSet<ClockifyTaskRule> ClockifyTaskRules => Set<ClockifyTaskRule>();
+
     public DbSet<ClockifyConnection> ClockifyConnections => Set<ClockifyConnection>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -100,6 +102,23 @@ public class TimesheetDbContext(DbContextOptions<TimesheetDbContext> options) : 
             entity.HasKey(x => x.Project);
 
             entity.Property(x => x.Project)
+                .HasMaxLength(100);
+
+            entity.Property(x => x.ClockifyProjectId)
+                .HasMaxLength(40)
+                .IsRequired();
+        });
+
+        modelBuilder.Entity<ClockifyTaskRule>(entity =>
+        {
+            entity.ToTable("ClockifyTaskRule", "dbo");
+
+            entity.HasKey(x => new { x.Project, x.Phrase });
+
+            entity.Property(x => x.Project)
+                .HasMaxLength(100);
+
+            entity.Property(x => x.Phrase)
                 .HasMaxLength(100);
 
             entity.Property(x => x.ClockifyProjectId)

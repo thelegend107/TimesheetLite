@@ -30,7 +30,8 @@ public enum ClockifySyncAction
     Update,
     Delete,
     Unchanged,
-    Blocked
+    Blocked,
+    Link
 }
 
 public enum ClockifySyncOutcome
@@ -47,11 +48,22 @@ public sealed record ClockifyProjectResponse(string Id, string Name, string Clie
 
 public sealed record ClockifyMappingResponse(string Project, string? ClockifyProjectId, ClockifyMappingSource Source);
 
-public sealed record ClockifyStatusResponse(ClockifyIssue Issue, string? Message, ClockifyAccountResponse? Account, IReadOnlyList<ClockifyProjectResponse> Projects, IReadOnlyList<ClockifyMappingResponse> Mappings, ClockifyConnectionSource Connection);
+public sealed record ClockifyRuleResponse(string Project, string Phrase, string ClockifyProjectId);
+
+public sealed record ClockifyStatusResponse(ClockifyIssue Issue, string? Message, ClockifyAccountResponse? Account, IReadOnlyList<ClockifyProjectResponse> Projects, IReadOnlyList<ClockifyMappingResponse> Mappings, IReadOnlyList<ClockifyRuleResponse> Rules, ClockifyConnectionSource Connection);
 
 public sealed record ConnectClockifyRequest
 {
     public required string ApiKey { get; init; }
+}
+
+public sealed record ClockifyRuleRequest
+{
+    public required string Project { get; init; }
+
+    public required string Phrase { get; init; }
+
+    public required string ClockifyProjectId { get; init; }
 }
 
 public sealed record ClockifySyncRequest
@@ -65,10 +77,12 @@ public sealed record ClockifySyncRequest
     public bool Apply { get; init; }
 
     public IReadOnlyDictionary<string, string>? Mappings { get; init; }
+
+    public IReadOnlyList<ClockifyRuleRequest>? Rules { get; init; }
 }
 
-public sealed record ClockifySyncItemResponse(int? EntryId, DateOnly Date, TimeOnly? Start, TimeOnly? End, string Label, string Description, ClockifySyncAction Action, ClockifySyncOutcome Outcome, string? Message);
+public sealed record ClockifySyncItemResponse(int? EntryId, DateOnly Date, TimeOnly? Start, TimeOnly? End, string Label, string Description, ClockifySyncAction Action, ClockifySyncOutcome Outcome, string? Message, string? Destination);
 
-public sealed record ClockifySyncSummaryResponse(int Create, int Update, int Delete, int Unchanged, int Blocked, int Failed);
+public sealed record ClockifySyncSummaryResponse(int Create, int Update, int Delete, int Link, int Unchanged, int Blocked, int Failed);
 
 public sealed record ClockifySyncResponse(bool Applied, ClockifySyncSummaryResponse Summary, IReadOnlyList<ClockifySyncItemResponse> Items);

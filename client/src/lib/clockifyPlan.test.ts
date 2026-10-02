@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ClockifyMapping, ClockifyProject, ClockifySyncAction, ClockifySyncItem, ClockifySyncOutcome, ClockifySyncResult, ClockifySyncSummary } from "../api/types";
-import { actionChip, buildPlanRequest, effectiveMappings, endsNextDay, entryDetail, INCLUDE_NOTES_KEY, itemDateLabel, mappingNote, mappingValue, orderItems, orderProjects, outcomeChip, planNote, planSummary, projectMatches, projectOptionLabel, pushCount, pushLabel, pushToast, rangeLabel, readIncludeNotes, resultNote, resultSummary, scopeRange, timeRangeLabel, writeIncludeNotes } from "./clockifyPlan";
+import { actionChip, applyCount, applyLabel, buildPlanRequest, clientFromKey, clientKey, clientLabel, clientNames, destinationLabel, draftsFromRules, draftsOf, dropRulesOutsideClient, effectiveClient, effectiveMappings, endsNextDay, entryDetail, INCLUDE_NOTES_KEY, itemDateLabel, mappingNote, mappingValue, orderItems, orderProjects, outcomeChip, planNote, planSummary, projectMatches, projectOptionLabel, projectsOfClient, pushCount, pushLabel, pushToast, rangeLabel, readIncludeNotes, resultNote, resultSummary, ruleRequests, scopeRange, suggestClient, timeRangeLabel, writeIncludeNotes } from "./clockifyPlan";
 import { parseIso } from "./dates";
 
-const summary = (partial: Partial<ClockifySyncSummary> = {}): ClockifySyncSummary => ({ create: 0, update: 0, delete: 0, unchanged: 0, blocked: 0, failed: 0, ...partial });
+const summary = (partial: Partial<ClockifySyncSummary> = {}): ClockifySyncSummary => ({ create: 0, update: 0, delete: 0, link: 0, unchanged: 0, blocked: 0, failed: 0, ...partial });
 
 const item = (partial: Partial<ClockifySyncItem> = {}): ClockifySyncItem => ({
   entryId: 1,
@@ -15,6 +15,7 @@ const item = (partial: Partial<ClockifySyncItem> = {}): ClockifySyncItem => ({
   action: "Create",
   outcome: "Planned",
   message: null,
+  destination: null,
   ...partial,
 });
 
@@ -56,8 +57,10 @@ describe("range of a scope", () => {
   });
 
   it("builds a preview request with the chosen options", () => {
-    expect(buildPlanRequest("week", parseIso("2026-10-02"), true, { Alpha: "p1" })).toEqual({ from: "2026-09-28", to: "2026-10-04", includeNotes: true, apply: false, mappings: { Alpha: "p1" } });
-    expect(buildPlanRequest("day", parseIso("2026-10-02"), false, {})).toEqual({ from: "2026-10-02", to: "2026-10-02", includeNotes: false, apply: false, mappings: {} });
+    const rule = { project: "Alpha", phrase: "standup", clockifyProjectId: "p2" };
+
+    expect(buildPlanRequest("week", parseIso("2026-10-02"), true, { Alpha: "p1" }, [rule])).toEqual({ from: "2026-09-28", to: "2026-10-04", includeNotes: true, apply: false, mappings: { Alpha: "p1" }, rules: [rule] });
+    expect(buildPlanRequest("day", parseIso("2026-10-02"), false, {}, [])).toEqual({ from: "2026-10-02", to: "2026-10-02", includeNotes: false, apply: false, mappings: {}, rules: [] });
   });
 });
 
@@ -82,6 +85,109 @@ describe("Clockify project choices", () => {
     expect(projectMatches("Support · Northwind", "syn sup")).toBe(true);
     expect(projectMatches("Support · Northwind", "  SUPPORT  ")).toBe(true);
     expect(projectMatches("Support · Northwind", "orion")).toBe(false);
+  });
+});
+
+describe("Clockify clients", () => {
+  const projects = [project("1", "Software Development", "Northwind"), project("2", "GIS", "Northwind"), project("3", "Software Development", "Contoso Technologies"), project("4", "Conference"), project("5", "Meetings", "Contoso Core")];
+  const clients = clientNames(projects);
+  const gamma = mapping("Northwind", null, "None");
+
+  it("lists each client once, alphabetically, with no client last", () => {
+    expect(clients).toEqual(["Contoso Core", "Contoso Technologies", "Northwind", ""]);
+  });
+
+  it("turns the empty client into a key a menu can hold and a readable label", () => {
+    expect(clientFromKey(clientKey(""))).toBe("");
+    expect(clientFromKey(clientKey("Northwind"))).toBe("Northwind");
+    expect(clientKey("")).not.toBe("");
+    expect(clientLabel("")).toBe("No client");
+    expect(clientLabel("Northwind")).toBe("Northwind");
+  });
+
+  it("offers only the chosen client's projects, or all of them when none is chosen", () => {
+    expect(projectsOfClient(projects, "Northwind").map((x) => x.id)).toEqual(["1", "2"]);
+    expect(projectsOfClient(projects, "").map((x) => x.id)).toEqual(["4"]);
+    expect(projectsOfClient(projects, null)).toHaveLength(5);
+  });
+
+  it("suggests the client named like the local project", () => {
+    expect(suggestClient(clients, "Northwind")).toBe("Northwind");
+    expect(suggestClient(clients, " northwind ")).toBe("Northwind");
+    expect(suggestClient(clients, "Contoso")).toBe("Contoso Technologies");
+  });
+
+  it("suggests nothing when the name is unknown, empty or fits several clients", () => {
+    expect(suggestClient(clients, "Internal")).toBeNull();
+    expect(suggestClient(clients, "  ")).toBeNull();
+    expect(suggestClient(clients, "AG")).toBeNull();
+  });
+
+  it("uses the user's client first, then the saved project's client, then the name", () => {
+    expect(effectiveClient(gamma, {}, {}, projects, clients)).toBe("Northwind");
+    expect(effectiveClient(mapping("Northwind", "3", "Saved"), {}, {}, projects, clients)).toBe("Contoso Technologies");
+    expect(effectiveClient(mapping("Northwind", "3", "Saved"), { Northwind: "5" }, {}, projects, clients)).toBe("Contoso Core");
+    expect(effectiveClient(mapping("Northwind", "3", "Saved"), {}, { Northwind: "" }, projects, clients)).toBe("");
+    expect(effectiveClient(mapping("Internal", null, "None"), {}, {}, projects, clients)).toBeNull();
+  });
+
+  it("drops a project the user cleared and tells the server to forget the saved one", () => {
+    const saved = mapping("Northwind", "1", "Saved");
+
+    expect(mappingValue(saved, { Northwind: "" })).toBeNull();
+    expect(effectiveMappings([saved], { Northwind: "" })).toEqual({ Northwind: "" });
+    expect(mappingNote(saved, { Northwind: "" })).toBe("Choose a Clockify project. Until then its entries are blocked.");
+  });
+});
+
+describe("task rules", () => {
+  const projects = [project("1", "Software Development", "Contoso Technologies"), project("2", "Meetings", "Contoso Technologies"), project("3", "Meetings", "Northwind")];
+  const saved = [
+    { project: "Contoso", phrase: "standup", clockifyProjectId: "2" },
+    { project: "Northwind", phrase: "call", clockifyProjectId: "3" },
+  ];
+
+  it("turns saved rules into drafts with stable keys", () => {
+    expect(draftsFromRules(saved)).toEqual([
+      { key: "saved-0", project: "Contoso", phrase: "standup", clockifyProjectId: "2" },
+      { key: "saved-1", project: "Northwind", phrase: "call", clockifyProjectId: "3" },
+    ]);
+  });
+
+  it("sends only complete rules, with the wording trimmed", () => {
+    const drafts = [
+      { key: "a", project: "Contoso", phrase: "  standup ", clockifyProjectId: "2" },
+      { key: "b", project: "Contoso", phrase: "", clockifyProjectId: "2" },
+      { key: "c", project: "Contoso", phrase: "coding", clockifyProjectId: "" },
+      { key: "d", project: "Contoso", phrase: "   ", clockifyProjectId: "1" },
+    ];
+
+    expect(ruleRequests(drafts)).toEqual([{ project: "Contoso", phrase: "standup", clockifyProjectId: "2" }]);
+    expect(ruleRequests([])).toEqual([]);
+  });
+
+  it("finds the drafts of one local project", () => {
+    const drafts = draftsFromRules(saved);
+
+    expect(draftsOf(drafts, "Northwind").map((x) => x.key)).toEqual(["saved-1"]);
+    expect(draftsOf(drafts, "Internal")).toEqual([]);
+  });
+
+  it("clears the project of a rule that is outside a newly chosen client and keeps its wording", () => {
+    const drafts = draftsFromRules([...saved, { project: "Contoso", phrase: "admin", clockifyProjectId: "1" }]);
+    const result = dropRulesOutsideClient(drafts, "Contoso", "Northwind", projects);
+
+    expect(result.map((x) => [x.phrase, x.clockifyProjectId])).toEqual([
+      ["standup", ""],
+      ["call", "3"],
+      ["admin", ""],
+    ]);
+    expect(dropRulesOutsideClient(drafts, "Contoso", "Contoso Technologies", projects)).toEqual(drafts);
+  });
+
+  it("says where an entry goes, or shows a dash", () => {
+    expect(destinationLabel(item({ destination: "Meetings · Northwind" }))).toBe("Meetings · Northwind");
+    expect(destinationLabel(item({ destination: null }))).toBe("–");
   });
 });
 
@@ -126,6 +232,20 @@ describe("push count and label", () => {
     expect(pushLabel(6)).toBe("Push 6 changes");
     expect(pushLabel(0)).toBe("Push changes");
   });
+
+  it("counts entries already in Clockify as work for the button but not as pushed", () => {
+    expect(pushCount(summary({ link: 4 }))).toBe(0);
+    expect(applyCount(summary({ create: 2, link: 4, unchanged: 1 }))).toBe(6);
+    expect(applyCount(summary({ unchanged: 3 }))).toBe(0);
+  });
+
+  it("labels the button for linking when nothing is sent to Clockify", () => {
+    expect(applyLabel(summary({ link: 11 }))).toBe("Link 11 entries");
+    expect(applyLabel(summary({ link: 1 }))).toBe("Link 1 entry");
+    expect(applyLabel(summary({ create: 2, link: 4 }))).toBe("Push 2 changes");
+    expect(applyLabel(summary())).toBe("Push changes");
+    expect(applyLabel(undefined)).toBe("Push changes");
+  });
 });
 
 describe("plan summary", () => {
@@ -147,6 +267,14 @@ describe("plan summary", () => {
     expect(planSummary(summary({ unchanged: 1, blocked: 3 }))).toBe("Nothing to push, 1 unchanged, 3 blocked");
   });
 
+  it("says which entries are already in Clockify and does not call that a push", () => {
+    expect(planSummary(summary({ link: 11 }))).toBe("11 already in Clockify");
+    expect(planSummary(summary({ create: 2, link: 3, unchanged: 1 }))).toBe("2 to create, 3 already in Clockify, 1 unchanged");
+    expect(planSummary(summary({ link: 2, blocked: 1 }))).toBe("2 already in Clockify, 1 blocked");
+    expect(resultSummary(summary({ create: 1, link: 3 }))).toBe("1 pushed, 3 linked");
+    expect(resultSummary(summary({ link: 2 }))).toBe("2 linked");
+  });
+
   it("summarizes a finished push", () => {
     expect(resultSummary(summary({ create: 2, update: 1, unchanged: 4 }))).toBe("3 pushed, 4 unchanged");
     expect(resultSummary(summary({ create: 1, failed: 2, blocked: 1 }))).toBe("1 pushed, 2 failed, 1 blocked");
@@ -159,6 +287,12 @@ describe("push toast", () => {
   it("reports success with a singular and a plural form", () => {
     expect(pushToast(result([], { create: 3, delete: 1 }))).toEqual({ kind: "success", title: "Pushed 4 entries to Clockify" });
     expect(pushToast(result([], { update: 1 }))).toEqual({ kind: "success", title: "Pushed 1 entry to Clockify" });
+  });
+
+  it("says linked entries were linked, not pushed", () => {
+    expect(pushToast(result([], { link: 11 }))).toEqual({ kind: "success", title: "Linked 11 entries already in Clockify" });
+    expect(pushToast(result([], { link: 1 }))).toEqual({ kind: "success", title: "Linked 1 entry already in Clockify" });
+    expect(pushToast(result([], { create: 2, link: 3 }))).toEqual({ kind: "success", title: "Pushed 2 entries and linked 3 already in Clockify" });
   });
 
   it("does not claim a push when nothing was sent", () => {
@@ -181,6 +315,7 @@ describe("action and outcome chips", () => {
     ["Create", "Create", "accent"],
     ["Update", "Update", "default"],
     ["Delete", "Delete", "danger"],
+    ["Link", "In Clockify", "success"],
     ["Unchanged", "Unchanged", "default"],
     ["Blocked", "Blocked", "warning"],
   ];
@@ -212,6 +347,7 @@ describe("notes", () => {
 
   it("shows the server's reason for a blocked entry and nothing for the rest", () => {
     expect(planNote(item({ action: "Blocked", message: "No Clockify project is mapped to \"Gamma\"." }))).toBe("No Clockify project is mapped to \"Gamma\".");
+    expect(planNote(item({ action: "Link", message: "Already in Clockify. It will be linked, not duplicated." }))).toBe("Already in Clockify. It will be linked, not duplicated.");
     expect(planNote(item({ action: "Create" }))).toBe("");
     expect(planNote(item({ action: "Unchanged" }))).toBe("");
   });
@@ -220,6 +356,7 @@ describe("notes", () => {
     expect(resultNote(item({ action: "Create", outcome: "Done" }))).toBe("Created in Clockify");
     expect(resultNote(item({ action: "Update", outcome: "Done" }))).toBe("Updated in Clockify");
     expect(resultNote(item({ action: "Delete", outcome: "Done" }))).toBe("Removed from Clockify");
+    expect(resultNote(item({ action: "Link", outcome: "Done" }))).toBe("Linked to the entry already in Clockify");
     expect(resultNote(item({ action: "Unchanged", outcome: "Skipped" }))).toBe("Unchanged since the last push");
     expect(resultNote(item({ action: "Blocked", outcome: "Skipped", message: "Start and end times are required." }))).toBe("Start and end times are required.");
   });

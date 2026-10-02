@@ -34,13 +34,15 @@ export type ClockifyMappingSource = "None" | "Saved" | "Name";
 
 export type ClockifyConnectionSource = "None" | "App" | "Environment";
 
-export type ClockifySyncAction = "Create" | "Update" | "Delete" | "Unchanged" | "Blocked";
+export type ClockifySyncAction = "Create" | "Update" | "Delete" | "Link" | "Unchanged" | "Blocked";
 
 export type ClockifySyncOutcome = "Planned" | "Done" | "Failed" | "Skipped";
 
 export type ClockifyAccount = { userName: string; email: string; workspaceId: string; workspaceName: string; timeZone: string };
 
 export type ClockifyProject = { id: string; name: string; clientName: string };
+
+export type ClockifyRule = { project: string; phrase: string; clockifyProjectId: string };
 
 export type ClockifyMapping = { project: string; clockifyProjectId: string | null; source: ClockifyMappingSource };
 
@@ -50,6 +52,7 @@ export type ClockifyStatus = {
   account: ClockifyAccount | null;
   projects: ClockifyProject[];
   mappings: ClockifyMapping[];
+  rules: ClockifyRule[];
   connection: ClockifyConnectionSource;
 };
 
@@ -59,6 +62,7 @@ export type ClockifySyncRequest = {
   includeNotes: boolean;
   apply: boolean;
   mappings: Record<string, string>;
+  rules: ClockifyRule[];
 };
 
 export type ClockifySyncItem = {
@@ -71,8 +75,9 @@ export type ClockifySyncItem = {
   action: ClockifySyncAction;
   outcome: ClockifySyncOutcome;
   message: string | null;
+  destination: string | null;
 };
 
-export type ClockifySyncSummary = { create: number; update: number; delete: number; unchanged: number; blocked: number; failed: number };
+export type ClockifySyncSummary = { create: number; update: number; delete: number; link: number; unchanged: number; blocked: number; failed: number };
 
 export type ClockifySyncResult = { applied: boolean; summary: ClockifySyncSummary; items: ClockifySyncItem[] };

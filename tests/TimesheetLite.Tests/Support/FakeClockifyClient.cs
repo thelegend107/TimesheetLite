@@ -25,6 +25,8 @@ public sealed class FakeClockifyClient : IClockifyClient
 
     public Exception? FailStatusWith { get; set; }
 
+    public Exception? FailEntriesWith { get; set; }
+
     public bool RejectKeys { get; set; }
 
     public List<string> ValidatedKeys { get; } = [];
@@ -41,6 +43,16 @@ public sealed class FakeClockifyClient : IClockifyClient
     public Task<IReadOnlyList<ClockifyWorkspace>> GetWorkspacesAsync(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<ClockifyWorkspace>>(Workspaces);
 
     public Task<IReadOnlyList<ClockifyProject>> GetProjectsAsync(string workspaceId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<ClockifyProject>>(Projects);
+
+    public Task<IReadOnlyList<ClockifyRemoteEntry>> GetTimeEntriesAsync(string workspaceId, string userId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
+    {
+        if (FailEntriesWith is not null)
+        {
+            return Task.FromException<IReadOnlyList<ClockifyRemoteEntry>>(FailEntriesWith);
+        }
+
+        return Task.FromResult<IReadOnlyList<ClockifyRemoteEntry>>(Entries.Where(x => x.Value.StartUtc >= fromUtc && x.Value.EndUtc <= toUtc).Select(x => new ClockifyRemoteEntry(x.Key, x.Value.StartUtc, x.Value.EndUtc, x.Value.Description, x.Value.ProjectId)).ToList());
+    }
 
     public Task<string> CreateTimeEntryAsync(string workspaceId, ClockifyEntryPayload payload, CancellationToken cancellationToken)
     {

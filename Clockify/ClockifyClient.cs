@@ -10,6 +10,8 @@ public sealed class ClockifyClient(HttpClient http, IClockifyCredentials credent
 {
     private const int ProjectPageSize = 200;
     private const int ProjectPageLimit = 25;
+    private const int EntryPageSize = 500;
+    private const int EntryPageLimit = 40;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
 
     public async Task<ClockifyUser> GetUserAsync(CancellationToken cancellationToken) => ToUser(await GetAsync<UserDto>("user", null, cancellationToken));
@@ -40,6 +42,25 @@ public sealed class ClockifyClient(HttpClient http, IClockifyCredentials credent
         }
 
         return projects;
+    }
+
+    public async Task<IReadOnlyList<ClockifyRemoteEntry>> GetTimeEntriesAsync(string workspaceId, string userId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
+    {
+        var entries = new List<ClockifyRemoteEntry>();
+
+        for (var page = 1; page <= EntryPageLimit; page++)
+        {
+            var batch = await GetAsync<List<TimeEntryDto>>($"workspaces/{Uri.EscapeDataString(workspaceId)}/user/{Uri.EscapeDataString(userId)}/time-entries?start={Format(fromUtc)}&end={Format(toUtc)}&hydrated=false&page-size={EntryPageSize}&page={page}", null, cancellationToken);
+
+            entries.AddRange(batch.Where(x => x.TimeInterval is { Start: not null, End: not null }).Select(x => new ClockifyRemoteEntry(x.Id, x.TimeInterval!.Start!.Value.UtcDateTime, x.TimeInterval.End!.Value.UtcDateTime, x.Description ?? "", x.ProjectId)));
+
+            if (batch.Count < EntryPageSize)
+            {
+                break;
+            }
+        }
+
+        return entries;
     }
 
     public async Task<string> CreateTimeEntryAsync(string workspaceId, ClockifyEntryPayload payload, CancellationToken cancellationToken)
@@ -171,6 +192,10 @@ public sealed class ClockifyClient(HttpClient http, IClockifyCredentials credent
     private sealed record UserDto(string Id, string? Name, string? Email, string? ActiveWorkspace, string? DefaultWorkspace, UserSettingsDto? Settings);
 
     private sealed record WorkspaceDto(string Id, string? Name);
+
+    private sealed record TimeIntervalDto(DateTimeOffset? Start, DateTimeOffset? End);
+
+    private sealed record TimeEntryDto(string Id, string? Description, string? ProjectId, TimeIntervalDto? TimeInterval);
 
     private sealed record ProjectDto(string Id, string? Name, bool Archived, string? ClientName);
 }

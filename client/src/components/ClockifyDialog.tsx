@@ -1,13 +1,14 @@
-import { Alert, Button, Chip, ComboBox, Description, EmptyState, Input, ListBox, Modal, Skeleton, Spinner, Switch, Table, ToggleButton, ToggleButtonGroup, toast } from "@heroui/react";
+import { Alert, Button, Chip, Description, EmptyState, Modal, Skeleton, Spinner, Switch, Table, ToggleButton, ToggleButtonGroup, toast } from "@heroui/react";
 import type { CalendarDate } from "@internationalized/date";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useClockifyPlan, useClockifyPush, useClockifyStatus, useDisconnectClockify } from "../api/queries";
-import type { ClockifyAccount, ClockifyMapping, ClockifyProject, ClockifyStatus, ClockifySyncItem, ClockifySyncResult } from "../api/types";
-import { actionChip, buildPlanRequest, effectiveMappings, endsNextDay, entryDetail, itemDateLabel, mappingNote, mappingValue, orderItems, orderProjects, outcomeChip, planNote, planSummary, projectMatches, projectOptionLabel, pushCount, pushLabel, pushToast, rangeLabel, readIncludeNotes, resultNote, resultSummary, timeRangeLabel, writeIncludeNotes } from "../lib/clockifyPlan";
-import type { ChipSpec, ClockifyScope } from "../lib/clockifyPlan";
+import type { ClockifyAccount, ClockifyMapping, ClockifyStatus, ClockifySyncItem, ClockifySyncResult } from "../api/types";
+import { actionChip, applyCount, applyLabel, buildPlanRequest, clientNames, destinationLabel, draftsFromRules, dropRulesOutsideClient, effectiveMappings, endsNextDay, entryDetail, itemDateLabel, mappingValue, orderItems, orderProjects, outcomeChip, planNote, planSummary, pushToast, rangeLabel, readIncludeNotes, resultNote, resultSummary, ruleRequests, timeRangeLabel, writeIncludeNotes } from "../lib/clockifyPlan";
+import type { ChipSpec, ClockifyScope, RuleDraft } from "../lib/clockifyPlan";
 import { ClockifyConnectForm } from "./ClockifyConnectForm";
-import { ProjectLabel } from "./ProjectLabel";
+import { ProjectRouting } from "./ProjectRouting";
+import type { RulePatch } from "./ProjectRouting";
 
 type ClockifyDialogProps = { isOpen: boolean; onOpenChange: (open: boolean) => void; selected: CalendarDate };
 
@@ -18,8 +19,6 @@ type ReadyProps = { status: ClockifyStatus; account: ClockifyAccount; selected: 
 type ProblemAlertProps = { status: "default" | "danger"; title: string; actionLabel: string; isBusy: boolean; onAction: () => void; children?: ReactNode };
 
 type IssueAlertProps = { status: ClockifyStatus; isBusy: boolean; onCheck: () => void };
-
-type ProjectChoiceProps = { mapping: ClockifyMapping; projects: ClockifyProject[]; choices: Record<string, string>; isDisabled: boolean; onChoose: (project: string, projectId: string) => void };
 
 type ChangesTableProps = { items: ClockifySyncItem[]; mode: "plan" | "result" };
 
@@ -32,7 +31,7 @@ export function ClockifyDialog({ isOpen, onOpenChange, selected }: ClockifyDialo
   return (
     <Modal.Backdrop isDismissable={!busy} isKeyboardDismissDisabled={busy} isOpen={isOpen} onOpenChange={onOpenChange}>
       <Modal.Container size="lg">
-        <Modal.Dialog className="sm:max-w-4xl">
+        <Modal.Dialog className="sm:max-w-5xl">
           <Modal.Header>
             <Modal.Heading>Clockify</Modal.Heading>
           </Modal.Header>
@@ -202,9 +201,13 @@ function ClockifyReady({ status, account, selected, onBusyChange }: ReadyProps) 
   const push = useClockifyPush();
   const disconnect = useDisconnectClockify();
   const projects = useMemo(() => orderProjects(status.projects), [status.projects]);
-  const request = buildPlanRequest(scope, selected, includeNotes, effectiveMappings(status.mappings, choices));
+  const clients = useMemo(() => clientNames(status.projects), [status.projects]);
+  const [clientChoices, setClientChoices] = useState<Record<string, string>>({});
+  const [drafts, setDrafts] = useState<RuleDraft[]>(() => draftsFromRules(status.rules));
+  const draftCount = useRef(0);
+  const request = buildPlanRequest(scope, selected, includeNotes, effectiveMappings(status.mappings, choices), ruleRequests(drafts));
   const plan = useClockifyPlan(result === null ? request : null);
-  const count = plan.data ? pushCount(plan.data.summary) : 0;
+  const count = plan.data ? applyCount(plan.data.summary) : 0;
 
   const changeScope = (keys: Set<string | number>) => {
     const [key] = [...keys];
@@ -224,6 +227,32 @@ function ClockifyReady({ status, account, selected, onBusyChange }: ReadyProps) 
   const choose = (project: string, projectId: string) => {
     push.reset();
     setChoices((current) => ({ ...current, [project]: projectId }));
+  };
+
+  const chooseClient = (mapping: ClockifyMapping, client: string) => {
+    push.reset();
+    setClientChoices((current) => ({ ...current, [mapping.project]: client }));
+
+    if (projects.find((x) => x.id === mappingValue(mapping, choices))?.clientName !== client) {
+      setChoices((current) => ({ ...current, [mapping.project]: "" }));
+    }
+
+    setDrafts((current) => dropRulesOutsideClient(current, mapping.project, client, projects));
+  };
+
+  const addRule = (project: string) => {
+    draftCount.current += 1;
+    setDrafts((current) => [...current, { key: `new-${draftCount.current}`, project, phrase: "", clockifyProjectId: "" }]);
+  };
+
+  const changeRule = (key: string, patch: RulePatch) => {
+    push.reset();
+    setDrafts((current) => current.map((draft) => (draft.key === key ? { ...draft, ...patch } : draft)));
+  };
+
+  const removeRule = (key: string) => {
+    push.reset();
+    setDrafts((current) => current.filter((draft) => draft.key !== key));
   };
 
   const previewAgain = () => {
@@ -293,7 +322,7 @@ function ClockifyReady({ status, account, selected, onBusyChange }: ReadyProps) 
                   </div>
                   <ul className="flex flex-col gap-3">
                     {status.mappings.map((mapping) => (
-                      <ProjectChoice key={mapping.project} choices={choices} isDisabled={push.isPending} mapping={mapping} projects={projects} onChoose={choose} />
+                      <ProjectRouting key={mapping.project} choices={choices} clientChoices={clientChoices} clients={clients} isDisabled={push.isPending} mapping={mapping} projects={projects} rules={drafts} onAddRule={addRule} onChangeRule={changeRule} onChoose={choose} onChooseClient={chooseClient} onRemoveRule={removeRule} />
                     ))}
                   </ul>
                 </section>
@@ -354,7 +383,7 @@ function ClockifyReady({ status, account, selected, onBusyChange }: ReadyProps) 
               {({ isPending }) => (
                 <>
                   {isPending ? <Spinner color="current" size="sm" /> : null}
-                  {isPending ? "Pushing…" : pushLabel(count)}
+                  {isPending ? "Pushing…" : applyLabel(plan.data?.summary)}
                 </>
               )}
             </Button>
@@ -372,50 +401,9 @@ function ClockifyReady({ status, account, selected, onBusyChange }: ReadyProps) 
   );
 }
 
-function ProjectChoice({ mapping, projects, choices, isDisabled, onChoose }: ProjectChoiceProps) {
-  return (
-    <li className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,2fr)] sm:items-center">
-      <div className="min-w-0 text-sm font-medium text-foreground">
-        <ProjectLabel className="max-w-full" project={mapping.project} />
-      </div>
-      <ComboBox
-        aria-label={`Clockify project for ${mapping.project}`}
-        fullWidth
-        defaultFilter={projectMatches}
-        isDisabled={isDisabled}
-        menuTrigger="focus"
-        selectedKey={mappingValue(mapping, choices)}
-        variant="secondary"
-        onSelectionChange={(key) => {
-          if (key !== null) {
-            onChoose(mapping.project, String(key));
-          }
-        }}
-      >
-        <ComboBox.InputGroup>
-          <Input autoComplete="off" placeholder="Search Clockify projects" />
-          <ComboBox.Trigger />
-        </ComboBox.InputGroup>
-        <ComboBox.Popover>
-          <ListBox>
-            {projects.map((project) => (
-              <ListBox.Item key={project.id} id={project.id} textValue={projectOptionLabel(project)}>
-                <span className="min-w-0 flex-1 truncate">{project.name}</span>
-                {project.clientName === "" ? null : <span className="shrink-0 pl-3 text-xs text-muted">{project.clientName}</span>}
-                <ListBox.ItemIndicator />
-              </ListBox.Item>
-            ))}
-          </ListBox>
-        </ComboBox.Popover>
-      </ComboBox>
-      <p className="text-xs text-muted">{mappingNote(mapping, choices)}</p>
-    </li>
-  );
-}
-
 function StatusChip({ chip }: { chip: ChipSpec }) {
   return (
-    <Chip color={chip.color} size="sm" variant="soft">
+    <Chip className="whitespace-nowrap" color={chip.color} size="sm" variant="soft">
       {chip.label}
     </Chip>
   );
@@ -435,6 +423,7 @@ function ChangesTable({ items, mode }: ChangesTableProps) {
             <Table.Column className={PAD} isRowHeader>
               Entry
             </Table.Column>
+            <Table.Column className={PAD}>Project</Table.Column>
             <Table.Column className={PAD}>Note</Table.Column>
           </Table.Header>
           <Table.Body items={rows} renderEmptyState={() => <EmptyState className="p-4 text-sm text-muted">No entries in this range.</EmptyState>}>
@@ -462,6 +451,11 @@ function ChangesTable({ items, mode }: ChangesTableProps) {
                         </span>
                       ) : null}
                     </div>
+                  </Table.Cell>
+                  <Table.Cell className={PAD}>
+                    <span className="block max-w-44 truncate" title={destinationLabel(item)}>
+                      {destinationLabel(item)}
+                    </span>
                   </Table.Cell>
                   <Table.Cell className={`${PAD} min-w-44 text-muted`}>{mode === "plan" ? planNote(item) : resultNote(item)}</Table.Cell>
                 </Table.Row>

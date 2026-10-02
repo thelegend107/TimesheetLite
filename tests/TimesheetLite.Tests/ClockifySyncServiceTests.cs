@@ -42,9 +42,9 @@ public sealed class ClockifySyncServiceTests : IDisposable
         return entry;
     }
 
-    private Task<ClockifySyncResponse> SyncAsync(bool apply, bool includeNotes = false, IReadOnlyDictionary<string, string>? mappings = null, DateOnly? from = null, DateOnly? to = null)
+    private Task<ClockifySyncResponse> SyncAsync(bool apply, bool includeNotes = false, IReadOnlyDictionary<string, string>? mappings = null, DateOnly? from = null, DateOnly? to = null, IReadOnlyList<ClockifyRuleRequest>? rules = null)
     {
-        var request = new ClockifySyncRequest { From = from ?? new DateOnly(2026, 9, 28), To = to ?? new DateOnly(2026, 10, 4), Apply = apply, IncludeNotes = includeNotes, Mappings = mappings };
+        var request = new ClockifySyncRequest { From = from ?? new DateOnly(2026, 9, 28), To = to ?? new DateOnly(2026, 10, 4), Apply = apply, IncludeNotes = includeNotes, Mappings = mappings, Rules = rules };
 
         return service.SyncAsync(request, CancellationToken.None);
     }
@@ -85,6 +85,238 @@ public sealed class ClockifySyncServiceTests : IDisposable
         Assert.Equal(1, second.Summary.Unchanged);
         Assert.Equal(0, second.Summary.Create);
         Assert.Single(client.Entries);
+    }
+
+    private static ClockifyEntryPayload Remote(string start, string end, string description = "Standup", string projectId = "p-contoso") => new(new DateTime(2026, 10, 2, int.Parse(start[..2]), int.Parse(start[3..]), 0, DateTimeKind.Utc), new DateTime(2026, 10, 2, int.Parse(end[..2]), int.Parse(end[3..]), 0, DateTimeKind.Utc), description, projectId);
+
+    [Fact]
+    public async Task An_entry_already_in_Clockify_is_linked_instead_of_duplicated()
+    {
+        var entry = AddEntry(start: "08:00", end: "10:45");
+        client.Entries["manual-1"] = Remote("13:00", "15:45");
+
+        var preview = await SyncAsync(apply: false);
+        var item = Assert.Single(preview.Items);
+
+        Assert.Equal((ClockifySyncAction.Link, 1, 0), (item.Action, preview.Summary.Link, preview.Summary.Create));
+        Assert.Contains("linked, not duplicated", item.Message);
+        Assert.Empty(db.ClockifyEntryLinks);
+
+        var applied = await SyncAsync(apply: true);
+        var link = Assert.Single(db.ClockifyEntryLinks);
+
+        Assert.Equal((1, ClockifySyncOutcome.Done), (applied.Summary.Link, applied.Items.Single().Outcome));
+        Assert.Equal(("manual-1", entry.Id), (link.ClockifyEntryId, link.TimeEntryId));
+        Assert.Single(client.Entries);
+
+        var next = await SyncAsync(apply: true);
+
+        Assert.Equal((1, 0, 0), (next.Summary.Unchanged, next.Summary.Link, next.Summary.Create));
+        Assert.Single(client.Entries);
+    }
+
+    [Fact]
+    public async Task An_entry_in_Clockify_with_a_different_project_or_description_is_linked_and_left_alone()
+    {
+        AddEntry(start: "08:00", end: "10:45", task: "Standup");
+        client.Entries["manual-1"] = Remote("13:00", "15:45", description: "Daily scrum", projectId: "p-northwind");
+
+        var response = await SyncAsync(apply: true);
+
+        Assert.Equal(1, response.Summary.Link);
+        Assert.Contains("left as it is", response.Items.Single().Message);
+        Assert.Equal(("Daily scrum", "p-northwind"), (client.Entries["manual-1"].Description, client.Entries["manual-1"].ProjectId));
+        Assert.Equal("manual-1", db.ClockifyEntryLinks.Single().ClockifyEntryId);
+    }
+
+    [Fact]
+    public async Task An_empty_project_id_from_the_dialog_drops_the_saved_mapping_and_blocks_the_entry()
+    {
+        AddEntry();
+        db.ClockifyProjectMaps.Add(new ClockifyProjectMap { Project = "Contoso", ClockifyProjectId = "p-contoso" });
+        db.SaveChanges();
+
+        var response = await SyncAsync(apply: true, mappings: new Dictionary<string, string> { ["Contoso"] = "" });
+
+        Assert.Equal((1, 0), (response.Summary.Blocked, response.Summary.Create));
+        Assert.Empty(client.Entries);
+    }
+
+    private static ClockifyRuleRequest Rule(string project, string phrase, string projectId) => new() { Project = project, Phrase = phrase, ClockifyProjectId = projectId };
+
+    private void UseNorthwindProjects()
+    {
+        client.Projects.Clear();
+        client.Projects.Add(new ClockifyProject("p-dev", "Software Development", false, "Contoso Technologies"));
+        client.Projects.Add(new ClockifyProject("p-meet", "Meetings", false, "Contoso Technologies"));
+        client.Projects.Add(new ClockifyProject("p-admin", "Administrative", false, "Contoso Technologies"));
+    }
+
+    [Fact]
+    public async Task A_task_rule_sends_matching_tasks_to_its_project_and_the_rest_to_the_default()
+    {
+        UseNorthwindProjects();
+        AddEntry(task: "WhereAbout iOS - fix map", start: "08:00", end: "09:00");
+        AddEntry(task: "Stand-up + wrapping up", start: "09:00", end: "09:30");
+
+        var rules = new[] { Rule("Contoso", "standup", "p-meet") };
+        var response = await SyncAsync(apply: true, mappings: new Dictionary<string, string> { ["Contoso"] = "p-dev" }, rules: rules);
+
+        Assert.Equal(2, response.Summary.Create);
+        Assert.Equal(["p-dev", "p-meet"], client.Entries.Values.OrderBy(x => x.StartUtc).Select(x => x.ProjectId));
+        Assert.Equal(["Software Development · Contoso Technologies", "Meetings · Contoso Technologies"], response.Items.Select(x => x.Destination));
+    }
+
+    [Fact]
+    public async Task The_longest_matching_phrase_wins_and_rules_ignore_case_and_punctuation()
+    {
+        UseNorthwindProjects();
+        AddEntry(task: "Team MEETING about admin", start: "08:00", end: "09:00");
+
+        var rules = new[] { Rule("contoso", "meeting", "p-meet"), Rule("Contoso", "Meeting about", "p-admin") };
+        var response = await SyncAsync(apply: false, rules: rules);
+
+        Assert.Equal("Administrative · Contoso Technologies", response.Items.Single().Destination);
+    }
+
+    [Fact]
+    public async Task A_rule_for_one_local_project_does_not_touch_another()
+    {
+        UseNorthwindProjects();
+        AddEntry(project: "Northwind", task: "Standup", start: "08:00", end: "09:00");
+
+        var response = await SyncAsync(apply: false, rules: [Rule("Contoso", "standup", "p-meet")]);
+
+        Assert.Equal(1, response.Summary.Blocked);
+    }
+
+    [Fact]
+    public async Task A_rule_alone_is_enough_but_unmatched_tasks_stay_blocked()
+    {
+        UseNorthwindProjects();
+        AddEntry(task: "Standup", start: "08:00", end: "09:00");
+        AddEntry(task: "Coding", start: "09:00", end: "10:00");
+
+        var response = await SyncAsync(apply: false, rules: [Rule("Contoso", "standup", "p-meet")]);
+
+        Assert.Equal((1, 1), (response.Summary.Create, response.Summary.Blocked));
+        Assert.Contains("No Clockify project is mapped to \"Contoso\"", response.Items.Single(x => x.Action == ClockifySyncAction.Blocked).Message);
+    }
+
+    [Fact]
+    public async Task A_rule_whose_project_is_gone_blocks_its_entries_instead_of_using_the_default()
+    {
+        UseNorthwindProjects();
+        AddEntry(task: "Standup", start: "08:00", end: "09:00");
+
+        var response = await SyncAsync(apply: false, mappings: new Dictionary<string, string> { ["Contoso"] = "p-dev" }, rules: [Rule("Contoso", "standup", "p-removed")]);
+        var item = Assert.Single(response.Items);
+
+        Assert.Equal(ClockifySyncAction.Blocked, item.Action);
+        Assert.Contains("no longer available", item.Message);
+    }
+
+    [Fact]
+    public async Task Changing_a_rule_updates_the_entries_already_pushed()
+    {
+        UseNorthwindProjects();
+        AddEntry(task: "Standup", start: "08:00", end: "09:00");
+        await SyncAsync(apply: true, mappings: new Dictionary<string, string> { ["Contoso"] = "p-dev" });
+
+        var preview = await SyncAsync(apply: false, rules: [Rule("Contoso", "standup", "p-meet")]);
+        var applied = await SyncAsync(apply: true, rules: [Rule("Contoso", "standup", "p-meet")]);
+
+        Assert.Equal(1, preview.Summary.Update);
+        Assert.Equal(1, applied.Summary.Update);
+        Assert.Equal("p-meet", client.Entries.Values.Single().ProjectId);
+    }
+
+    [Fact]
+    public async Task Rules_are_saved_on_push_reused_without_being_sent_and_replaced_when_sent_again()
+    {
+        UseNorthwindProjects();
+        AddEntry(task: "Standup", start: "08:00", end: "09:00");
+
+        await SyncAsync(apply: false, rules: [Rule("Contoso", "standup", "p-meet")]);
+        Assert.Empty(db.ClockifyTaskRules);
+
+        await SyncAsync(apply: true, rules: [Rule("Contoso", "standup", "p-meet"), Rule("Contoso", "coding", "p-dev")]);
+        Assert.Equal(["coding", "standup"], db.ClockifyTaskRules.AsEnumerable().Select(x => x.Phrase).Order());
+
+        var reused = await SyncAsync(apply: false);
+        Assert.Equal("Meetings · Contoso Technologies", reused.Items.Single().Destination);
+
+        await SyncAsync(apply: true, rules: [Rule("CONTOSO", "STANDUP", "p-admin")]);
+        var saved = Assert.Single(db.ClockifyTaskRules);
+        Assert.Equal(("standup", "p-admin"), (saved.Phrase, saved.ClockifyProjectId));
+
+        await SyncAsync(apply: true, rules: []);
+        Assert.Empty(db.ClockifyTaskRules);
+    }
+
+    [Fact]
+    public async Task Incomplete_or_oversized_rules_are_ignored()
+    {
+        UseNorthwindProjects();
+        AddEntry(task: "Standup", start: "08:00", end: "09:00");
+
+        var rules = new[] { Rule("Contoso", "  ", "p-meet"), Rule("Contoso", "---", "p-meet"), Rule("Contoso", "standup", ""), Rule("", "standup", "p-meet"), Rule("Contoso", new string('x', 101), "p-meet") };
+        var response = await SyncAsync(apply: true, rules: rules);
+
+        Assert.Equal(1, response.Summary.Blocked);
+        Assert.Empty(db.ClockifyTaskRules);
+    }
+
+    [Fact]
+    public async Task Status_lists_the_saved_rules()
+    {
+        UseNorthwindProjects();
+        AddEntry();
+        db.ClockifyTaskRules.AddRange(new ClockifyTaskRule { Project = "Contoso", Phrase = "standup", ClockifyProjectId = "p-meet" }, new ClockifyTaskRule { Project = "Contoso", Phrase = "admin", ClockifyProjectId = "p-admin" });
+        db.SaveChanges();
+
+        var status = await service.GetStatusAsync(CancellationToken.None);
+
+        Assert.Equal([("Contoso", "admin", "p-admin"), ("Contoso", "standup", "p-meet")], status.Rules.Select(x => (x.Project, x.Phrase, x.ClockifyProjectId)));
+    }
+
+    [Fact]
+    public async Task Each_entry_in_Clockify_is_claimed_by_one_local_entry_only()
+    {
+        AddEntry(start: "08:00", end: "10:45", task: "First");
+        var second = AddEntry(start: "08:00", end: "10:45", task: "Second");
+        client.Entries["manual-1"] = Remote("13:00", "15:45", description: "Second");
+
+        var response = await SyncAsync(apply: true);
+
+        Assert.Equal((1, 1), (response.Summary.Link, response.Summary.Create));
+        Assert.Equal(2, client.Entries.Count);
+        Assert.Equal(second.Id, db.ClockifyEntryLinks.Single(x => x.ClockifyEntryId == "manual-1").TimeEntryId);
+    }
+
+    [Fact]
+    public async Task An_entry_in_Clockify_that_is_already_tracked_is_not_claimed_again()
+    {
+        AddEntry(start: "08:00", end: "10:45", task: "First");
+        await SyncAsync(apply: true);
+        AddEntry(start: "08:00", end: "10:45", task: "Second");
+
+        var response = await SyncAsync(apply: true);
+
+        Assert.Equal((1, 0), (response.Summary.Create, response.Summary.Link));
+        Assert.Equal(2, client.Entries.Count);
+    }
+
+    [Fact]
+    public async Task Nothing_is_created_when_the_existing_entries_cannot_be_read()
+    {
+        AddEntry();
+        client.FailEntriesWith = new ClockifyApiException(null, "Clockify could not be reached.");
+
+        await Assert.ThrowsAsync<ClockifyApiException>(() => SyncAsync(apply: true));
+
+        Assert.Empty(client.Entries);
+        Assert.Empty(db.ClockifyEntryLinks);
     }
 
     [Fact]
@@ -241,7 +473,7 @@ public sealed class ClockifySyncServiceTests : IDisposable
 
         var failed = (await SyncAsync(apply: true)).Items.Single();
 
-        Assert.Contains("check there before pushing again", failed.Message);
+        Assert.Contains("Pushing again links it instead of creating a duplicate", failed.Message);
     }
 
     [Fact]
@@ -277,7 +509,7 @@ public sealed class ClockifySyncServiceTests : IDisposable
 
         Assert.Equal(ClockifySyncOutcome.Failed, failed.Outcome);
         Assert.Contains("did not respond in time", failed.Message);
-        Assert.Contains("check there before pushing again", failed.Message);
+        Assert.Contains("Pushing again links it instead of creating a duplicate", failed.Message);
         Assert.Empty(db.ClockifyEntryLinks);
     }
 
