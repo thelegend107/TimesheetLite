@@ -106,6 +106,18 @@ public class ClockifyClientTests
     }
 
     [Fact]
+    public async Task GetTimeEntries_reads_the_intervals_in_utc_and_skips_timers_still_running()
+    {
+        var (client, handler) = Create(_ => Json("[{\"id\":\"e1\",\"description\":\"Standup\",\"projectId\":\"p1\",\"timeInterval\":{\"start\":\"2026-10-02T13:00:00Z\",\"end\":\"2026-10-02T15:45:00Z\"}},{\"id\":\"e2\",\"description\":null,\"projectId\":null,\"timeInterval\":{\"start\":\"2026-10-02T16:00:00Z\",\"end\":null}},{\"id\":\"e3\",\"timeInterval\":{\"start\":\"2026-10-02T17:00:00Z\",\"end\":\"2026-10-02T18:00:00Z\"}}]"));
+
+        var entries = await client.GetTimeEntriesAsync("w 1", "u1", new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc), new DateTime(2026, 10, 4, 0, 0, 0, DateTimeKind.Utc), CancellationToken.None);
+
+        Assert.Equal([("e1", "Standup", "p1", 13), ("e3", "", null, 17)], entries.Select(x => (x.Id, x.Description, x.ProjectId, x.StartUtc.Hour)));
+        Assert.All(entries, x => Assert.Equal(DateTimeKind.Utc, x.StartUtc.Kind));
+        Assert.Equal("/api/v1/workspaces/w%201/user/u1/time-entries?start=2026-10-01T00:00:00Z&end=2026-10-04T00:00:00Z&hydrated=false&page-size=500&page=1", handler.Requests.Single().PathAndQuery);
+    }
+
+    [Fact]
     public async Task CreateTimeEntry_posts_utc_timestamps_with_the_z_suffix_and_returns_the_id()
     {
         var (client, handler) = Create(_ => Json("{\"id\":\"remote-9\"}", HttpStatusCode.Created));

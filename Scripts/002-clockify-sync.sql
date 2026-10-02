@@ -43,6 +43,18 @@ BEGIN
 END;
 GO
 
+IF OBJECT_ID(N'[dbo].[ClockifyTaskRule]', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[ClockifyTaskRule]
+    (
+        [Project] NVARCHAR(100) NOT NULL,
+        [Phrase] NVARCHAR(100) NOT NULL,
+        [ClockifyProjectId] NVARCHAR(40) NOT NULL,
+        CONSTRAINT [PK_ClockifyTaskRule] PRIMARY KEY CLUSTERED ([Project], [Phrase])
+    );
+END;
+GO
+
 IF OBJECT_ID(N'[dbo].[ClockifyConnection]', N'U') IS NULL
 BEGIN
     CREATE TABLE [dbo].[ClockifyConnection]
