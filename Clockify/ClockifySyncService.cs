@@ -57,7 +57,7 @@ public sealed class ClockifySyncService(TimesheetDbContext db, IClockifyClient c
             var account = new ClockifyAccountResponse(user.Name, user.Email, workspaceId, workspaceName, zone.Id);
             var mappings = localProjects.Select(x => resolved.TryGetValue(x, out var map) ? new ClockifyMappingResponse(x, map.Id, map.Source) : new ClockifyMappingResponse(x, null, ClockifyMappingSource.None)).ToList();
 
-            return new ClockifyStatusResponse(ClockifyIssue.None, null, account, projects.Where(x => !x.Archived).Select(x => new ClockifyProjectResponse(x.Id, x.Name)).ToList(), mappings, source);
+            return new ClockifyStatusResponse(ClockifyIssue.None, null, account, projects.Where(x => !x.Archived).Select(x => new ClockifyProjectResponse(x.Id, x.Name, x.ClientName)).ToList(), mappings, source);
         }
         catch (ClockifySetupException exception)
         {

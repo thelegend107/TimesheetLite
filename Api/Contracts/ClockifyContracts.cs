@@ -43,7 +43,7 @@ public enum ClockifySyncOutcome
 
 public sealed record ClockifyAccountResponse(string UserName, string Email, string WorkspaceId, string WorkspaceName, string TimeZone);
 
-public sealed record ClockifyProjectResponse(string Id, string Name);
+public sealed record ClockifyProjectResponse(string Id, string Name, string ClientName);
 
 public sealed record ClockifyMappingResponse(string Project, string? ClockifyProjectId, ClockifyMappingSource Source);
 

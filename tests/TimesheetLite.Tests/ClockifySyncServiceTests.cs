@@ -488,6 +488,19 @@ public sealed class ClockifySyncServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Status_reports_each_projects_client_so_duplicates_can_be_told_apart()
+    {
+        client.Projects.Clear();
+        client.Projects.Add(new ClockifyProject("p-one", "Support", false, "Northwind"));
+        client.Projects.Add(new ClockifyProject("p-two", "Support", false, "Adventure Works"));
+        client.Projects.Add(new ClockifyProject("p-three", "Conference", false));
+
+        var status = await service.GetStatusAsync(CancellationToken.None);
+
+        Assert.Equal([("p-one", "Support", "Northwind"), ("p-two", "Support", "Adventure Works"), ("p-three", "Conference", "")], status.Projects.Select(x => (x.Id, x.Name, x.ClientName)));
+    }
+
+    [Fact]
     public async Task Status_without_an_api_key_is_not_configured()
     {
         settings.ApiKey = null;

@@ -40,7 +40,7 @@ export type ClockifySyncOutcome = "Planned" | "Done" | "Failed" | "Skipped";
 
 export type ClockifyAccount = { userName: string; email: string; workspaceId: string; workspaceName: string; timeZone: string };
 
-export type ClockifyProject = { id: string; name: string };
+export type ClockifyProject = { id: string; name: string; clientName: string };
 
 export type ClockifyMapping = { project: string; clockifyProjectId: string | null; source: ClockifyMappingSource };
 

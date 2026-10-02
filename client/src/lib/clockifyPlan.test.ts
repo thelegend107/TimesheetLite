@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ClockifyMapping, ClockifySyncAction, ClockifySyncItem, ClockifySyncOutcome, ClockifySyncResult, ClockifySyncSummary } from "../api/types";
-import { actionChip, buildPlanRequest, effectiveMappings, endsNextDay, entryDetail, INCLUDE_NOTES_KEY, itemDateLabel, mappingNote, mappingValue, orderItems, outcomeChip, planNote, planSummary, pushCount, pushLabel, pushToast, rangeLabel, readIncludeNotes, resultNote, resultSummary, scopeRange, timeRangeLabel, writeIncludeNotes } from "./clockifyPlan";
+import type { ClockifyMapping, ClockifyProject, ClockifySyncAction, ClockifySyncItem, ClockifySyncOutcome, ClockifySyncResult, ClockifySyncSummary } from "../api/types";
+import { actionChip, buildPlanRequest, effectiveMappings, endsNextDay, entryDetail, INCLUDE_NOTES_KEY, itemDateLabel, mappingNote, mappingValue, orderItems, orderProjects, outcomeChip, planNote, planSummary, projectMatches, projectOptionLabel, pushCount, pushLabel, pushToast, rangeLabel, readIncludeNotes, resultNote, resultSummary, scopeRange, timeRangeLabel, writeIncludeNotes } from "./clockifyPlan";
 import { parseIso } from "./dates";
 
 const summary = (partial: Partial<ClockifySyncSummary> = {}): ClockifySyncSummary => ({ create: 0, update: 0, delete: 0, unchanged: 0, blocked: 0, failed: 0, ...partial });
@@ -58,6 +58,30 @@ describe("range of a scope", () => {
   it("builds a preview request with the chosen options", () => {
     expect(buildPlanRequest("week", parseIso("2026-10-02"), true, { Alpha: "p1" })).toEqual({ from: "2026-09-28", to: "2026-10-04", includeNotes: true, apply: false, mappings: { Alpha: "p1" } });
     expect(buildPlanRequest("day", parseIso("2026-10-02"), false, {})).toEqual({ from: "2026-10-02", to: "2026-10-02", includeNotes: false, apply: false, mappings: {} });
+  });
+});
+
+const project = (id: string, name: string, clientName = ""): ClockifyProject => ({ id, name, clientName });
+
+describe("Clockify project choices", () => {
+  const projects = [project("1", "Support", "Northwind"), project("2", "Conference"), project("3", "Support", "Adventure Works"), project("4", "GIS", "Northwind")];
+
+  it("names the client so projects that share a name stay distinguishable", () => {
+    expect(projectOptionLabel(projects[0]!)).toBe("Support · Northwind");
+    expect(projectOptionLabel(projects[2]!)).toBe("Support · Adventure Works");
+    expect(projectOptionLabel(projects[1]!)).toBe("Conference");
+  });
+
+  it("groups projects by client and then by name without touching the original list", () => {
+    expect(orderProjects(projects).map((x) => x.id)).toEqual(["2", "3", "4", "1"]);
+    expect(projects.map((x) => x.id)).toEqual(["1", "2", "3", "4"]);
+  });
+
+  it("finds a project by any part of its name or client, in any order", () => {
+    expect(projectMatches("Support · Northwind", "")).toBe(true);
+    expect(projectMatches("Support · Northwind", "syn sup")).toBe(true);
+    expect(projectMatches("Support · Northwind", "  SUPPORT  ")).toBe(true);
+    expect(projectMatches("Support · Northwind", "orion")).toBe(false);
   });
 });
 
