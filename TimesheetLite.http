@@ -1,0 +1,236 @@
+@baseUrl = https://localhost:51064
+@weekStart = 2026-09-28
+@weekEnd = 2026-10-04
+@entryId = 1
+
+### Get client settings
+GET {{baseUrl}}/api/config
+Accept: application/json
+
+### List known projects and tasks
+GET {{baseUrl}}/api/catalog
+Accept: application/json
+
+### List entries for a week
+GET {{baseUrl}}/api/entries?from={{weekStart}}&to={{weekEnd}}
+Accept: application/json
+
+### List entries for one project
+GET {{baseUrl}}/api/entries?from={{weekStart}}&to={{weekEnd}}&project=Northwind%20Website
+Accept: application/json
+
+### Get one entry
+GET {{baseUrl}}/api/entries/{{entryId}}
+Accept: application/json
+
+### Create an entry
+POST {{baseUrl}}/api/entries
+Content-Type: application/json
+
+{
+  "date": "2026-09-30",
+  "project": "Northwind Website",
+  "task": "Review pull requests",
+  "start": "08:00",
+  "end": "10:45",
+  "notes": "- checked the cart changes\n- left comments on the pricing change"
+}
+
+### Create an entry that ends the next day
+POST {{baseUrl}}/api/entries
+Content-Type: application/json
+
+{
+  "date": "2026-09-30",
+  "project": "Contoso Support",
+  "task": "Incident follow-up",
+  "start": "22:00",
+  "end": "01:30"
+}
+
+### Replace an entry
+PUT {{baseUrl}}/api/entries/{{entryId}}
+Content-Type: application/json
+
+{
+  "date": "2026-09-30",
+  "project": "Northwind Website",
+  "task": "Review pull requests",
+  "start": "08:00",
+  "end": "11:15",
+  "notes": "- checked the cart changes\n- left comments on the pricing change\n- paired on the failing test"
+}
+
+### Delete an entry
+DELETE {{baseUrl}}/api/entries/{{entryId}}
+
+### Download entries as CSV
+GET {{baseUrl}}/api/entries/export.csv?from={{weekStart}}&to={{weekEnd}}
+
+### Download one project as CSV
+GET {{baseUrl}}/api/entries/export.csv?from={{weekStart}}&to={{weekEnd}}&project=Northwind%20Website
+
+### Check the Clockify connection
+GET {{baseUrl}}/api/clockify
+Accept: application/json
+
+### Connect Clockify with an API key (stored encrypted on the server)
+PUT {{baseUrl}}/api/clockify/connection
+Content-Type: application/json
+
+{
+  "apiKey": "paste-your-clockify-api-key"
+}
+
+### Forget the stored Clockify API key
+DELETE {{baseUrl}}/api/clockify/connection
+
+### Preview a Clockify push (writes nothing)
+POST {{baseUrl}}/api/clockify/sync
+Content-Type: application/json
+
+{
+  "from": "2026-09-28",
+  "to": "2026-10-04",
+  "includeNotes": false,
+  "apply": false
+}
+
+### Preview a Clockify push with a project mapping and notes
+POST {{baseUrl}}/api/clockify/sync
+Content-Type: application/json
+
+{
+  "from": "2026-09-28",
+  "to": "2026-10-04",
+  "includeNotes": true,
+  "apply": false,
+  "mappings": {
+    "Contoso Support": "64f0c0ffee0123456789abcd"
+  }
+}
+
+### Push the week to Clockify (creates, updates and deletes there)
+POST {{baseUrl}}/api/clockify/sync
+Content-Type: application/json
+
+{
+  "from": "2026-09-28",
+  "to": "2026-10-04",
+  "includeNotes": false,
+  "apply": true,
+  "mappings": {
+    "Contoso Support": "64f0c0ffee0123456789abcd"
+  }
+}
+
+### OpenAPI document (Development environment only)
+GET {{baseUrl}}/openapi/v1.json
+Accept: application/json
+
+### Unknown API route answers 404
+GET {{baseUrl}}/api/nope
+Accept: application/json
+
+### Get an entry that does not exist answers 404
+GET {{baseUrl}}/api/entries/999999
+Accept: application/json
+
+### Replace an entry that does not exist answers 404
+PUT {{baseUrl}}/api/entries/999999
+Content-Type: application/json
+
+{
+  "date": "2026-09-30",
+  "project": "Northwind Website",
+  "task": "Review pull requests",
+  "start": "08:00",
+  "end": "09:00"
+}
+
+### Delete an entry that does not exist answers 404
+DELETE {{baseUrl}}/api/entries/999999
+
+### Validation error: end equals start
+POST {{baseUrl}}/api/entries
+Content-Type: application/json
+
+{
+  "date": "2026-09-30",
+  "project": "Northwind Website",
+  "task": "Review pull requests",
+  "start": "09:00",
+  "end": "09:00"
+}
+
+### Validation error: blank project and task
+POST {{baseUrl}}/api/entries
+Content-Type: application/json
+
+{
+  "date": "2026-09-30",
+  "project": "   ",
+  "task": "",
+  "start": "09:00",
+  "end": "10:00"
+}
+
+### Validation error: date outside 2000 to 2100
+POST {{baseUrl}}/api/entries
+Content-Type: application/json
+
+{
+  "date": "1999-12-31",
+  "project": "Northwind Website",
+  "task": "Review pull requests",
+  "start": "09:00",
+  "end": "10:00"
+}
+
+### Bad request: time that is not HH:mm
+POST {{baseUrl}}/api/entries
+Content-Type: application/json
+
+{
+  "date": "2026-09-30",
+  "project": "Northwind Website",
+  "task": "Review pull requests",
+  "start": "25:61",
+  "end": "10:00"
+}
+
+### Bad request: required fields missing
+POST {{baseUrl}}/api/entries
+Content-Type: application/json
+
+{
+  "date": "2026-09-30"
+}
+
+### Validation error: list range runs backwards
+GET {{baseUrl}}/api/entries?from=2026-10-04&to=2026-09-28
+Accept: application/json
+
+### Bad request: list without a date range
+GET {{baseUrl}}/api/entries
+Accept: application/json
+
+### Validation error: Clockify range runs backwards
+POST {{baseUrl}}/api/clockify/sync
+Content-Type: application/json
+
+{
+  "from": "2026-10-04",
+  "to": "2026-09-28",
+  "apply": false
+}
+
+### Validation error: Clockify range longer than 92 days
+POST {{baseUrl}}/api/clockify/sync
+Content-Type: application/json
+
+{
+  "from": "2026-01-01",
+  "to": "2026-12-31",
+  "apply": false
+}

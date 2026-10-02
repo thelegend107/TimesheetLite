@@ -6,11 +6,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>TimesheetLite-Local</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    <DefaultItemExcludes>$(DefaultItemExcludes);client/**;tests/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.0" />
-    <PackageReference Include="Radzen.Blazor" Version="*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="TimesheetLite.Tests" />
   </ItemGroup>
 
 </Project>

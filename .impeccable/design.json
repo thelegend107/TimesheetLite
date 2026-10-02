@@ -1,0 +1,249 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-02T20:10:00+00:00",
+  "title": "Design System: TimesheetLite",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Desk Blue",
+        "canonical": "oklch(0.56 0.205 257)",
+        "tonalRamp": [
+          "oklch(15% 0.19 257)",
+          "oklch(25% 0.19 257)",
+          "oklch(35% 0.19 257)",
+          "oklch(45% 0.19 257)",
+          "oklch(55% 0.19 257)",
+          "oklch(70% 0.19 257)",
+          "oklch(82% 0.19 257)",
+          "oklch(95% 0.19 257)"
+        ]
+      },
+      "surface-light": {
+        "role": "neutral",
+        "displayName": "Surface White",
+        "canonical": "oklch(100% 0 0)",
+        "tonalRamp": [
+          "oklch(15% 0.005 286)",
+          "oklch(25% 0.005 286)",
+          "oklch(35% 0.005 286)",
+          "oklch(45% 0.005 286)",
+          "oklch(55% 0.005 286)",
+          "oklch(70% 0.005 286)",
+          "oklch(82% 0.005 286)",
+          "oklch(95% 0.005 286)"
+        ]
+      },
+      "surface-dark": {
+        "role": "neutral",
+        "displayName": "Surface Charcoal",
+        "canonical": "oklch(0.2103 0.0059 285.89)",
+        "tonalRamp": [
+          "oklch(15% 0.005 286)",
+          "oklch(25% 0.005 286)",
+          "oklch(35% 0.005 286)",
+          "oklch(45% 0.005 286)",
+          "oklch(55% 0.005 286)",
+          "oklch(70% 0.005 286)",
+          "oklch(82% 0.005 286)",
+          "oklch(95% 0.005 286)"
+        ]
+      },
+      "danger": {
+        "role": "status",
+        "displayName": "Danger",
+        "canonical": "oklch(0.55 0.22 26)",
+        "tonalRamp": [
+          "oklch(15% 0.2 25.74)",
+          "oklch(25% 0.2 25.74)",
+          "oklch(35% 0.2 25.74)",
+          "oklch(45% 0.2 25.74)",
+          "oklch(55% 0.2 25.74)",
+          "oklch(70% 0.2 25.74)",
+          "oklch(82% 0.2 25.74)",
+          "oklch(95% 0.2 25.74)"
+        ]
+      },
+      "warning": {
+        "role": "status",
+        "displayName": "Warning",
+        "canonical": "oklch(0.7819 0.1585 72.33)",
+        "tonalRamp": [
+          "oklch(15% 0.15 72.33)",
+          "oklch(25% 0.15 72.33)",
+          "oklch(35% 0.15 72.33)",
+          "oklch(45% 0.15 72.33)",
+          "oklch(55% 0.15 72.33)",
+          "oklch(70% 0.15 72.33)",
+          "oklch(82% 0.15 72.33)",
+          "oklch(95% 0.15 72.33)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "Title",
+        "purpose": "Week range heading."
+      },
+      "brand": {
+        "displayName": "Brand",
+        "purpose": "App name in the header."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Form and table text."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Day numbers, totals, dialog headings."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Per-day hours, counters, helper text."
+      }
+    },
+    "shadows": [
+      {
+        "name": "heroui-surface",
+        "value": "var(--surface-shadow)",
+        "purpose": "HeroUI default for Cards; unmodified."
+      },
+      {
+        "name": "heroui-overlay",
+        "value": "var(--overlay-shadow)",
+        "purpose": "HeroUI default for Modal, Drawer, Popover; unmodified."
+      }
+    ],
+    "motion": [],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single accent action in a context, such as Add.",
+      "html": "<button class=\"ds-btn-primary\">Add</button>",
+      "css": ".ds-btn-primary{background:oklch(0.56 0.205 257);color:oklch(0.9911 0 0);border:none;border-radius:12px;padding:8px 16px;font-size:14px;font-weight:500;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;cursor:pointer}.ds-btn-primary:hover{background:color-mix(in oklab,oklch(0.56 0.205 257) 90%,oklch(0.9911 0 0) 10%)}.ds-btn-primary:focus-visible{outline:2px solid oklch(0.56 0.205 257);outline-offset:2px}"
+    },
+    {
+      "name": "Tertiary Button",
+      "kind": "button",
+      "refersTo": "button-tertiary",
+      "description": "Header actions, week navigation, Cancel.",
+      "html": "<button class=\"ds-btn-tertiary\">Export CSV</button>",
+      "css": ".ds-btn-tertiary{background:oklch(94% 0.001 286.375);color:oklch(0.2103 0.0059 285.89);border:none;border-radius:12px;padding:6px 12px;font-size:14px;font-weight:500;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;cursor:pointer}.ds-btn-tertiary:hover{background:color-mix(in oklab,oklch(94% 0.001 286.375) 96%,oklch(0.2103 0.0059 285.89) 4%)}.ds-btn-tertiary:focus-visible{outline:2px solid oklch(0.56 0.205 257);outline-offset:2px}"
+    },
+    {
+      "name": "Secondary Field",
+      "kind": "input",
+      "refersTo": "field-secondary",
+      "description": "Text field on a Card, Drawer or Modal.",
+      "html": "<label class=\"ds-field-label\">Task<input class=\"ds-input\" value=\"Reviewing work\"></label>",
+      "css": ".ds-field-label{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:500;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;color:oklch(0.2103 0.0059 285.89)}.ds-input{background:oklch(0.9524 0.0013 286.37);border:none;border-radius:12px;padding:8px 12px;font-size:14px;color:oklch(0.2103 0.0059 285.89)}.ds-input:focus-visible{outline:2px solid oklch(0.56 0.205 257);outline-offset:1px}"
+    },
+    {
+      "name": "Day Tab",
+      "kind": "nav",
+      "refersTo": "today-dot",
+      "description": "One of seven weekday tabs with day number, today dot and hours.",
+      "html": "<div class=\"ds-tab\"><span class=\"ds-tab-day\">Tue</span><span class=\"ds-tab-num\">14<i class=\"ds-today\"></i></span><span class=\"ds-tab-hrs\">7.5h</span></div>",
+      "css": ".ds-tab{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 12px;border-radius:12px;background:oklch(100% 0 0);font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;font-variant-numeric:tabular-nums}.ds-tab-day{font-size:12px;font-weight:600}.ds-tab-num{display:flex;align-items:center;gap:4px;font-size:14px;font-weight:500}.ds-tab-hrs{font-size:12px;color:oklch(0.51 0.0138 285.94)}.ds-today{width:6px;height:6px;border-radius:9999px;background:oklch(0.56 0.205 257);display:inline-block}"
+    },
+    {
+      "name": "Project Label",
+      "kind": "chip",
+      "refersTo": "project-dot",
+      "description": "Categorical dot beside a project name.",
+      "html": "<span class=\"ds-project\"><i class=\"ds-dot\"></i>Client Alpha</span>",
+      "css": ".ds-project{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;color:oklch(0.2103 0.0059 285.89)}.ds-dot{width:8px;height:8px;border-radius:9999px;background:oklch(0.58 0.15 285)}"
+    },
+    {
+      "name": "Week Meter",
+      "kind": "custom",
+      "refersTo": "colors.default-light",
+      "description": "Neutral progress against the 40-hour target.",
+      "html": "<div class=\"ds-meter\"><div class=\"ds-meter-out\">32 of 40 h</div><div class=\"ds-track\"><div class=\"ds-fill\"></div></div></div>",
+      "css": ".ds-meter{width:256px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif}.ds-meter-out{font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;margin-bottom:4px}.ds-track{height:8px;border-radius:9999px;background:oklch(94% 0.001 286.375)}.ds-fill{width:80%;height:100%;border-radius:9999px;background:oklch(0.2103 0.0059 285.89)}"
+    },
+    {
+      "name": "Entries Card",
+      "kind": "card",
+      "refersTo": "app-header",
+      "description": "Surface with a day total footer.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-row\"><span>Internal</span><span>2.00</span></div><div class=\"ds-foot\"><span>1 entry</span><span>2.00 h</span></div></div>",
+      "css": ".ds-card{background:oklch(100% 0 0);border-radius:24px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;font-size:14px;width:320px;overflow:hidden}.ds-row,.ds-foot{display:flex;justify-content:space-between;padding:12px 16px;font-variant-numeric:tabular-nums}.ds-foot{border-top:1px solid oklch(92% 0.004 286.32)}.ds-foot span:first-child{color:oklch(0.51 0.0138 285.94)}.ds-foot span:last-child{font-weight:500}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Logging Desk",
+    "overview": "HeroUI v3's default theme, pinned on purpose and played restrained. Surfaces are neutral in light and dark, both designed and following the operating system. Nothing is drawn by hand: every control is a HeroUI component, and the system is mostly the discipline of which variant sits where. It is an Operate surface for one person typing a batch of entries at the end of the day, so density and keyboard flow beat atmosphere.\n\nColor is scarce. The single blue accent marks the primary action, focus, the caret and selection tint, and the today dot. Everything else (week navigation, the Meter fill, the header actions) is neutral. Numbers are the texture: hours, times and counters use tabular numerals so columns and live totals never shimmer.",
+    "keyCharacteristics": [
+      "Neutral surfaces, one accent, both color schemes first-class.",
+      "Pure HeroUI components; custom CSS is limited to selection and caret tint.",
+      "Form fields on surfaces use the secondary variant.",
+      "Tabular numerals on every hour, time and counter.",
+      "System font stack, no webfonts."
+    ],
+    "rules": [
+      {
+        "name": "The One Voice Rule",
+        "section": "colors",
+        "body": "Accent blue marks only the primary action, focus and the today dot. If a second element wants it, it should be neutral."
+      },
+      {
+        "name": "The Not-a-Status Rule",
+        "section": "colors",
+        "body": "Project hues never overlap red, amber, green or the accent blue, so a dot can never read as state."
+      },
+      {
+        "name": "The Neutral Progress Rule",
+        "section": "colors",
+        "body": "The week Meter uses `color=\"default\"` and week navigation uses `ButtonGroup variant=\"tertiary\"`; progress is information, not an action."
+      },
+      {
+        "name": "The Tabular Hours Rule",
+        "section": "typography",
+        "body": "Any hour, time, date range or count is set with `tabular-nums`."
+      },
+      {
+        "name": "The Surface Variant Rule",
+        "section": "elevation",
+        "body": "A field on a Card, Drawer or Modal uses `variant=\"secondary\"` (ComboBox root, TextArea, DateField.Group, Select). The default field fill matches the surface and disappears in dark mode."
+      }
+    ],
+    "dos": [
+      "**Do** build every control from HeroUI components and use their variant props before any custom class.",
+      "**Do** use `variant=\"secondary\"` for fields placed on Card, Drawer or Modal.",
+      "**Do** reserve the accent for the primary action, focus and the today dot.",
+      "**Do** set hours, times and counters with tabular numerals.",
+      "**Do** draw new project dots from the existing hue table or one that also avoids red, amber, green and the accent blue.",
+      "**Do** design every new surface in light and dark together.",
+      "**Do** use synthetic names (Internal, Client Alpha, Reviewing work) in mocks and tests; never the owner's real entries."
+    ],
+    "donts": [
+      "**Don't** color the Meter, week navigation or header actions with the accent.",
+      "**Don't** use red, amber or green for anything categorical.",
+      "**Don't** add custom shadows, gradients or webfonts; the theme is HeroUI's default, pinned.",
+      "**Don't** hand-draw controls that HeroUI provides.",
+      "**Don't** key the day tabs by date."
+    ]
+  }
+}

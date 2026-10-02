@@ -4,7 +4,7 @@ public class TimeEntry
 {
     public int Id { get; set; }
 
-    public DateTime WorkDate { get; set; } = DateTime.Today;
+    public DateOnly WorkDate { get; set; }
 
     public string Project { get; set; } = "";
 
@@ -18,7 +18,7 @@ public class TimeEntry
 
     public string? Notes { get; set; }
 
-    public DateTimeOffset CreatedDate { get; set; } = DateTimeOffset.Now;
+    public DateTimeOffset CreatedDate { get; set; }
 
-    public DateTimeOffset UpdatedDate { get; set; } = DateTimeOffset.Now;
+    public DateTimeOffset UpdatedDate { get; set; }
 }
